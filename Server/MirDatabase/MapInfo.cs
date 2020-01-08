@@ -5,7 +5,6 @@ using System.ComponentModel.DataAnnotations.Schema;
 using System.Drawing;
 using System.IO;
 using System.Linq;
-using System.Windows.Forms;
 using Microsoft.EntityFrameworkCore;
 using Server.MirEnvir;
 
@@ -50,6 +49,8 @@ namespace Server.MirDatabase
         public bool NeedHole { get; set; }
         public bool Fire { get; set; }
         public bool Lightning { get; set; }
+        public bool NoTownTeleport { get; set; }
+        public bool NoReincarnation { get; set; }
 
         public string NoReconnectMap { get; set; } = string.Empty;
         public int FireDamage { get; set; }
@@ -423,8 +424,8 @@ namespace Server.MirDatabase
 
 
             if (Settings.UseSqlDb) info.Index = 0;
-            else info.Index = ++SMain.EditEnvir.MapIndex;
-            SMain.EditEnvir.MapInfoList.Add(info);
+            else info.Index = ++Envir.Edit.MapIndex;
+            Envir.Edit.MapInfoList.Add(info);
         }
     }
 

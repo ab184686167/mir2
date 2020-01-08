@@ -24,7 +24,7 @@ namespace Server.MirDatabase.Extensions
                 Envir.ServerDb.SaveChanges();
             }
 
-            foreach (var gameShopItem in SMain.Envir.GameShopList)
+            foreach (var gameShopItem in Envir.Main.GameShopList)
             {
                 if (gameShopItem.ItemIndex == orgIndex && orgIndex != info.Index)
                 {

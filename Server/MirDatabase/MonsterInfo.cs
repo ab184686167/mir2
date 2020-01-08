@@ -160,7 +160,7 @@ namespace Server.MirDatabase
                 }
 
                 Envir.ServerDb.SaveChanges();
-                foreach (var mapInfo in SMain.Envir.MapInfoList)
+                foreach (var mapInfo in Envir.Main.MapInfoList)
                 {
                     foreach (var mapInfoRespawn in mapInfo.Respawns)
                     {

@@ -521,10 +521,10 @@ namespace Server.MirDatabase
                 CompletedQuestsString = string.Join(",", CompletedQuests);
 
                 CurrentRefineItemIndex = CurrentRefine?.UniqueID ?? 0;
-                if ((CollectTime - SMain.Envir.Time) < 0)
+                if ((CollectTime - Envir.Main.Time) < 0)
                     CollectTime = 0;
                 else
-                    CollectTime = CollectTime - SMain.Envir.Time;
+                    CollectTime = CollectTime - Envir.Main.Time;
 
                 using (var ms = new MemoryStream())
                 using (var writer = new BinaryWriter(ms))

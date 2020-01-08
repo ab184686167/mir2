@@ -862,7 +862,7 @@ namespace Server.MirEnvir
         private void DebugLog(string log)
         {
             Debug.WriteLine($"[{DateTime.Now}]: {log}");
-            SMain.Enqueue(log);
+            //SMain.Enqueue(log);
         }
 
         #region SQL DB Save
@@ -1460,7 +1460,7 @@ namespace Server.MirEnvir
                 var dbGameShopList = ServerDb.GameShopItems.ToList();
                 foreach (var item in dbGameShopList)
                 {
-                    if (SMain.Envir.BindGameShop(item))
+                    if (Envir.Main.BindGameShop(item))
                     {
                         GameShopList.Add(item);
                     }

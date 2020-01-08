@@ -14,7 +14,7 @@ namespace Server.MirDatabase.Extensions
         {
             using (Envir.ServerDb = new ServerDbContext())
             {
-                var newItemIndex = SMain.Envir.GetItemInfo(gsItem.Info.Name)?.Index;
+                var newItemIndex = Envir.Main.GetItemInfo(gsItem.Info.Name)?.Index;
                 if (gsItem.ItemIndex != newItemIndex && newItemIndex != null) gsItem.ItemIndex = newItemIndex.Value;
                 if (gsItem.GIndex == 0) Envir.ServerDb.GameShopItems.Add(gsItem);
                 if (Envir.ServerDb.Entry(gsItem).State == EntityState.Detached)
