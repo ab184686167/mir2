@@ -11,6 +11,10 @@ namespace Server.MirDatabase
 {
     public class RespawnInfo
     {
+        protected static Envir Envir
+        {
+            get { return Envir.Main; }
+        }
         [Key]
         public int Index { get; set; }
         public int MonsterIndex { get; set; }
@@ -69,7 +73,7 @@ namespace Server.MirDatabase
             }
             else
             {
-                RespawnIndex = ++SMain.Envir.RespawnIndex;
+                RespawnIndex = ++Envir.RespawnIndex;
             }
         }
 

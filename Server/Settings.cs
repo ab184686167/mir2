@@ -6,34 +6,39 @@ using Server.MirDatabase;
 
 namespace Server
 {
-    internal static class Settings
+    public static class Settings
     {
+        private static MessageQueue MessageQueue
+        {
+            get { return MessageQueue.Instance; }
+        }
+
         public const int Day = 24 * Hour, Hour = 60 * Minute, Minute = 60 * Second, Second = 1000;
 
-        public const string EnvirPath = @".\Envir\",
-                            ConfigPath = @".\Configs\",
-                            MapPath = @".\Maps\",
-                            ExportPath = @".\Exports\",
-                            GuildPath = @".\Guilds\",
-                            ConquestsPath = @".\Conquests\",
-                            NPCPath = EnvirPath + @".\NPCs\",
-                            GoodsPath = EnvirPath + @".\Goods\",
-                            RecipePath = EnvirPath + @"Recipe\",
-                            QuestPath = EnvirPath + @".\Quests\",
-                            DropPath = EnvirPath + @".\Drops\",
-                            RoutePath = EnvirPath + @".\Routes\",
-                            NameListPath = EnvirPath + @".\NameLists\",
-                            ValuePath = EnvirPath + @".\Values\",
-                            ReportPath = @".\Reports\",
-                            LogPath = @".\Logs\";
+        public static readonly string EnvirPath = Path.Combine(".", "Envir"),
+            ConfigPath = Path.Combine(".", "Configs"),
+            MapPath = Path.Combine(".", "Maps"),
+            ExportPath = Path.Combine(".", "Exports"),
+            GuildPath = Path.Combine(".", "Guilds"),
+            ConquestsPath = Path.Combine(".", "Conquests"),
+            NPCPath = Path.Combine(EnvirPath, "NPCs"),
+            GoodsPath = Path.Combine(EnvirPath, "Goods"),
+            RecipePath = Path.Combine(EnvirPath, "Recipe"),
+            QuestPath = Path.Combine(EnvirPath, "Quests"),
+            DropPath = Path.Combine(EnvirPath, "Drops"),
+            RoutePath = Path.Combine(EnvirPath, "Routes"),
+            NameListPath = Path.Combine(EnvirPath, "NameLists"),
+            ValuePath = Path.Combine(EnvirPath, "Values"),
+            ReportPath = Path.Combine(".", "Reports"),
+            LogPath = Path.Combine(".", "Logs"),
+            ErrorPath = Path.Combine(LogPath, "Errors");
 
 
-
-        private static readonly InIReader Reader = new InIReader(ConfigPath + @".\Setup.ini");
+        private static readonly InIReader Reader = new InIReader(Path.Combine(ConfigPath, "Setup.ini"));
 
 
         //General
-        public static string VersionPath = @".\Mir2.Exe";
+        public static string VersionPath = Path.Combine(".", "Mir2.Exe");
         public static bool CheckVersion = true;
         public static byte[] VersionHash;
         public static string GMPassword = "C#Mir 4.0";
@@ -61,6 +66,10 @@ namespace Server
                              RelogDelay = 50,
                              MaxIP = 5;
 
+        //HTTP
+        public static bool StartHTTPService = false;
+        public static string HTTPIPAddress = "http://127.0.0.1:5679/";
+        public static string HTTPTrustedIPAddress = "127.0.0.1:5679";
 
         //Permission
         public static bool AllowNewAccount = true,
@@ -262,6 +271,8 @@ namespace Server
         public static List<long> Guild_ExperienceList = new List<long>();
         public static List<int> Guild_MembercapList = new List<int>();
         public static List<GuildBuffInfo> Guild_BuffList = new List<GuildBuffInfo>();
+        public static long GroupInviteDelay { get; internal set; } = 2000;
+        public static long TradeDelay { get; internal set; } = 2000;
 
         public static void LoadVersion()
         {
@@ -274,12 +285,12 @@ namespace Server
             }
             catch (Exception ex)
             {
-                SMain.Enqueue(ex);
+                MessageQueue.Enqueue(ex);
             }
         }
 
         public static void Load()
-        {
+        {            
             //General
             VersionPath = Reader.ReadString("General", "VersionPath", VersionPath);
             CheckVersion = Reader.ReadBoolean("General", "CheckVersion", CheckVersion);
@@ -298,6 +309,11 @@ namespace Server
             TimeOut = Reader.ReadUInt16("Network", "TimeOut", TimeOut);
             MaxUser = Reader.ReadUInt16("Network", "MaxUser", MaxUser);
             MaxIP = Reader.ReadUInt16("Network", "MaxIP", MaxIP);
+
+            //HTTP
+            StartHTTPService = Reader.ReadBoolean("Network", "StartHTTPService", StartHTTPService);
+            HTTPIPAddress = Reader.ReadString("Network", "HTTPIPAddress", HTTPIPAddress);
+            HTTPTrustedIPAddress = Reader.ReadString("Network", "HTTPTrustedIPAddress", HTTPTrustedIPAddress);
 
             //Permission
             AllowNewAccount = Reader.ReadBoolean("Permission", "AllowNewAccount", AllowNewAccount);
@@ -374,6 +390,8 @@ namespace Server
             ToadName = Reader.ReadString("Game", "ToadName", ToadName);
             SnakeTotemName = Reader.ReadString("Game", "SnakeTotemName", SnakeTotemName);
             SnakesName = Reader.ReadString("Game", "SnakesName", SnakesName);
+            GroupInviteDelay = Reader.ReadInt64("Game", "GroupInviteDelay", GroupInviteDelay);
+            TradeDelay = Reader.ReadInt64("Game", "TradeDelay", TradeDelay);
 
             //Rested
             RestedPeriod = Reader.ReadInt32("Rested", "Period", RestedPeriod);
@@ -446,6 +464,8 @@ namespace Server
                 Directory.CreateDirectory(NameListPath);
             if (!Directory.Exists(LogPath))
                 Directory.CreateDirectory(LogPath);
+            if (!Directory.Exists(ErrorPath))
+                Directory.CreateDirectory(ErrorPath);
             if (!Directory.Exists(ReportPath))
                 Directory.CreateDirectory(ReportPath);
             if (!Directory.Exists(RecipePath))
@@ -489,6 +509,8 @@ namespace Server
             LoadMentor();
             LoadGoods();
             LoadGem();
+            //Languahe
+            GameLanguage.LoadServerLanguage(Path.Combine(ConfigPath, "Language.ini"));
         }
         public static void Save()
         {
@@ -509,6 +531,11 @@ namespace Server
             Reader.Write("Network", "TimeOut", TimeOut);
             Reader.Write("Network", "MaxUser", MaxUser);
             Reader.Write("Network", "MaxIP", MaxIP);
+
+            //HTTP
+            Reader.Write("Network", "StartHTTPService", StartHTTPService);
+            Reader.Write("Network", "HTTPIPAddress", HTTPIPAddress);
+            Reader.Write("Network", "HTTPTrustedIPAddress", HTTPTrustedIPAddress);
 
             //Permission
             Reader.Write("Permission", "AllowNewAccount", AllowNewAccount);
@@ -589,6 +616,8 @@ namespace Server
             Reader.Write("Game", "ToadName", ToadName);
             Reader.Write("Game", "SnakeTotemName", SnakeTotemName);
             Reader.Write("Game", "SnakesName", SnakesName);
+            Reader.Write("Game", "GroupInviteDelay", GroupInviteDelay);
+            Reader.Write("Game", "TradeDelay", TradeDelay);
 
             Reader.Write("Rested", "Period", RestedPeriod);
             Reader.Write("Rested", "BuffLength", RestedBuffLength);
@@ -605,7 +634,7 @@ namespace Server
 
             Reader.Write("DropGold", "DropGold", DropGold);
             Reader.Write("DropGold", "MaxDropGold", MaxDropGold);
-
+            
             Reader.Write("Items", "MaxMagicResist", MaxMagicResist);
             Reader.Write("Items", "MagicResistWeight", MagicResistWeight);
             Reader.Write("Items", "MaxPoisonResist", MaxPoisonResist);
@@ -640,7 +669,7 @@ namespace Server
         public static void LoadEXP()
         {
             long exp = 100;
-            InIReader reader = new InIReader(ConfigPath + @".\ExpList.ini");
+            InIReader reader = new InIReader(Path.Combine(ConfigPath, "ExpList.ini"));
 
             for (int i = 1; i <= 500; i++)
             {
@@ -649,7 +678,7 @@ namespace Server
             }
 
             //ArcherSpells - Elemental system
-            reader = new InIReader(ConfigPath + @".\OrbsExpList.ini");
+            reader = new InIReader(Path.Combine(ConfigPath, "OrbsExpList.ini"));
             for (int i = 1; i <= 4; i++)
             {
                 exp = i * 50;//default exp value
@@ -666,13 +695,13 @@ namespace Server
 
         public static void LoadBaseStats()
         {
-            if (!File.Exists(ConfigPath + @".\BaseStats.ini"))
+            if (!File.Exists(Path.Combine(ConfigPath, "BaseStats.ini")))
             {
                 SaveBaseStats();
                 return;
             }
 
-            InIReader reader = new InIReader(ConfigPath + @".\BaseStats.ini");
+            InIReader reader = new InIReader(Path.Combine(ConfigPath, "BaseStats.ini"));
 
             for (int i = 0; i < ClassBaseStats.Length; i++)
             {
@@ -702,8 +731,8 @@ namespace Server
         }
         public static void SaveBaseStats()
         {
-            File.Delete(ConfigPath + @".\BaseStats.ini");
-            InIReader reader = new InIReader(ConfigPath + @".\BaseStats.ini");
+            File.Delete(Path.Combine(ConfigPath, "BaseStats.ini"));
+            InIReader reader = new InIReader(Path.Combine(ConfigPath, "BaseStats.ini"));
 
             for (int i = 0; i < ClassBaseStats.Length; i++)
             {
@@ -736,7 +765,7 @@ namespace Server
             //note: i could have used a flat file system for this which would be faster, 
             //BUT: it's only loaded @ server startup so speed isnt vital.
             //and i think settings should be available outside the exe for ppl to edit it easyer + lets ppl share config without forcing ppl to run it in an exe
-            if (!File.Exists(ConfigPath + @".\RandomItemStats.ini"))
+            if (!File.Exists(Path.Combine(ConfigPath, "RandomItemStats.ini")))
             {
                 RandomItemStatsList.Add(new RandomItemStat());
                 RandomItemStatsList.Add(new RandomItemStat(ItemType.Weapon));
@@ -749,7 +778,7 @@ namespace Server
                 SaveRandomItemStats();
                 return;
             }
-            InIReader reader = new InIReader(ConfigPath + @".\RandomItemStats.ini");
+            InIReader reader = new InIReader(Path.Combine(ConfigPath, "RandomItemStats.ini"));
             int i = 0;
             RandomItemStat stat;
             while (reader.ReadByte("Item" + i.ToString(),"MaxDuraChance",255) != 255)
@@ -828,8 +857,8 @@ namespace Server
         }
         public static void SaveRandomItemStats()
         {
-            File.Delete(ConfigPath + @".\RandomItemStats.ini");
-            InIReader reader = new InIReader(ConfigPath + @".\RandomItemStats.ini");
+            File.Delete(Path.Combine(ConfigPath, "RandomItemStats.ini"));
+            InIReader reader = new InIReader(Path.Combine(ConfigPath, "RandomItemStats.ini"));
             RandomItemStat stat;
             for (int i = 0; i < RandomItemStatsList.Count; i++)
             {
@@ -906,14 +935,14 @@ namespace Server
 
         public static void LoadMines()
         {
-            if (!File.Exists(ConfigPath + @".\Mines.ini"))
+            if (!File.Exists(Path.Combine(ConfigPath, "Mines.ini")))
             {
                 MineSetList.Add(new MineSet(1));
                 MineSetList.Add(new MineSet(2));
                 SaveMines();
                 return;
             }
-            InIReader reader = new InIReader(ConfigPath + @".\Mines.ini");
+            InIReader reader = new InIReader(Path.Combine(ConfigPath, "Mines.ini"));
             int i = 0;
             MineSet Mine;
             while (reader.ReadByte("Mine" + i.ToString(), "SpotRegenRate", 255) != 255)
@@ -947,8 +976,8 @@ namespace Server
         }
         public static void SaveMines()
         {
-            File.Delete(ConfigPath + @".\Mines.ini");
-            InIReader reader = new InIReader(ConfigPath + @".\Mines.ini");
+            File.Delete(Path.Combine(ConfigPath, "Mines.ini"));
+            InIReader reader = new InIReader(Path.Combine(ConfigPath, "Mines.ini"));
             MineSet Mine;
             for (int i = 0; i < MineSetList.Count; i++)
             {
@@ -976,13 +1005,13 @@ namespace Server
 
         public static void LoadGuildSettings()
         {
-            if (!File.Exists(ConfigPath + @".\GuildSettings.ini"))
+            if (!File.Exists(Path.Combine(ConfigPath, "GuildSettings.ini")))
             {
                 Guild_CreationCostList.Add(new ItemVolume(){Amount = 1000000});
                 Guild_CreationCostList.Add(new ItemVolume(){ItemName = "WoomaHorn",Amount = 1});
                 return;
             }
-            InIReader reader = new InIReader(ConfigPath + @".\GuildSettings.ini");
+            InIReader reader = new InIReader(Path.Combine(ConfigPath, "GuildSettings.ini"));
             Guild_RequiredLevel = reader.ReadByte("Guilds", "MinimumLevel", Guild_RequiredLevel);
             Guild_ExpRate = reader.ReadFloat("Guilds", "ExpRate", Guild_ExpRate);
             Guild_PointPerLevel = reader.ReadByte("Guilds", "PointPerLevel", Guild_PointPerLevel);
@@ -1023,8 +1052,8 @@ namespace Server
         }
         public static void SaveGuildSettings()
         {
-            File.Delete(ConfigPath + @".\GuildSettings.ini");
-            InIReader reader = new InIReader(ConfigPath + @".\GuildSettings.ini");
+            File.Delete(Path.Combine(ConfigPath, "GuildSettings.ini"));
+            InIReader reader = new InIReader(Path.Combine(ConfigPath, "GuildSettings.ini"));
             reader.Write("Guilds", "MinimumLevel", Guild_RequiredLevel);
             reader.Write("Guilds", "ExpRate", Guild_ExpRate);
             reader.Write("Guilds", "PointPerLevel", Guild_PointPerLevel);
@@ -1068,12 +1097,12 @@ namespace Server
 
 		public static void LoadAwakeAttribute()
         {
-            if (!File.Exists(ConfigPath + @".\AwakeningSystem.ini"))
+            if (!File.Exists(Path.Combine(ConfigPath, "AwakeningSystem.ini")))
             {
                 return;
             }
 
-            InIReader reader = new InIReader(ConfigPath + @".\AwakeningSystem.ini");
+            InIReader reader = new InIReader(Path.Combine(ConfigPath, "AwakeningSystem.ini"));
             Awake.AwakeSuccessRate = reader.ReadByte("Attribute", "SuccessRate", Awake.AwakeSuccessRate);
             Awake.AwakeHitRate = reader.ReadByte("Attribute", "HitRate", Awake.AwakeHitRate);
             Awake.MaxAwakeLevel = reader.ReadInt32("Attribute", "MaxUpgradeLevel", Awake.MaxAwakeLevel);
@@ -1116,8 +1145,8 @@ namespace Server
         }
         public static void SaveAwakeAttribute()
         {
-            File.Delete(ConfigPath + @".\AwakeningSystem.ini");
-            InIReader reader = new InIReader(ConfigPath + @".\AwakeningSystem.ini");
+            File.Delete(Path.Combine(ConfigPath, "AwakeningSystem.ini"));
+            InIReader reader = new InIReader(Path.Combine(ConfigPath, "AwakeningSystem.ini"));
             reader.Write("Attribute", "SuccessRate", Awake.AwakeSuccessRate);
             reader.Write("Attribute", "HitRate", Awake.AwakeHitRate);
             reader.Write("Attribute", "MaxUpgradeLevel", Awake.MaxAwakeLevel);
@@ -1166,13 +1195,13 @@ namespace Server
 
         public static void LoadFishing()
         {
-            if (!File.Exists(ConfigPath + @".\FishingSystem.ini"))
+            if (!File.Exists(Path.Combine(ConfigPath, "FishingSystem.ini")))
             {
                 SaveFishing();
                 return;
             }
 
-            InIReader reader = new InIReader(ConfigPath + @".\FishingSystem.ini");
+            InIReader reader = new InIReader(Path.Combine(ConfigPath, "FishingSystem.ini"));
             FishingAttempts = reader.ReadInt32("Rates", "Attempts", FishingAttempts);
             FishingSuccessStart = reader.ReadInt32("Rates", "SuccessStart", FishingSuccessStart);
             FishingSuccessMultiplier = reader.ReadInt32("Rates", "SuccessMultiplier", FishingSuccessMultiplier);
@@ -1182,8 +1211,8 @@ namespace Server
         }
         public static void SaveFishing()
         {
-            File.Delete(ConfigPath + @".\FishingSystem.ini");
-            InIReader reader = new InIReader(ConfigPath + @".\FishingSystem.ini");
+            File.Delete(Path.Combine(ConfigPath, "FishingSystem.ini"));
+            InIReader reader = new InIReader(Path.Combine(ConfigPath, "FishingSystem.ini"));
             reader.Write("Rates", "Attempts", FishingAttempts);
             reader.Write("Rates", "SuccessStart", FishingSuccessStart);
             reader.Write("Rates", "SuccessMultiplier", FishingSuccessMultiplier);
@@ -1194,13 +1223,13 @@ namespace Server
 
         public static void LoadMail()
         {
-            if (!File.Exists(ConfigPath + @".\MailSystem.ini"))
+            if (!File.Exists(Path.Combine(ConfigPath, "MailSystem.ini")))
             {
                 SaveMail();
                 return;
             }
 
-            InIReader reader = new InIReader(ConfigPath + @".\MailSystem.ini");
+            InIReader reader = new InIReader(Path.Combine(ConfigPath, "MailSystem.ini"));
             MailAutoSendGold = reader.ReadBoolean("AutoSend", "Gold", MailAutoSendGold);
             MailAutoSendItems = reader.ReadBoolean("AutoSend", "Items", MailAutoSendItems);
             MailFreeWithStamp = reader.ReadBoolean("Rates", "FreeWithStamp", MailFreeWithStamp);
@@ -1210,8 +1239,8 @@ namespace Server
         }
         public static void SaveMail()
         {
-            File.Delete(ConfigPath + @".\MailSystem.ini");
-            InIReader reader = new InIReader(ConfigPath + @".\MailSystem.ini");
+            File.Delete(Path.Combine(ConfigPath, "MailSystem.ini"));
+            InIReader reader = new InIReader(Path.Combine(ConfigPath, "MailSystem.ini"));
             reader.Write("AutoSend", "Gold", MailAutoSendGold);
             reader.Write("AutoSend", "Items", MailAutoSendItems);
             reader.Write("Rates", "FreeWithStamp", MailFreeWithStamp);
@@ -1222,13 +1251,13 @@ namespace Server
 
         public static void LoadRefine()
         {
-            if (!File.Exists(ConfigPath + @".\RefineSystem.ini"))
+            if (!File.Exists(Path.Combine(ConfigPath, "RefineSystem.ini")))
             {
                 SaveRefine();
                 return;
             }
 
-            InIReader reader = new InIReader(ConfigPath + @".\RefineSystem.ini");
+            InIReader reader = new InIReader(Path.Combine(ConfigPath, "RefineSystem.ini"));
             OnlyRefineWeapon = reader.ReadBoolean("Config", "OnlyRefineWeapon", OnlyRefineWeapon);
             RefineBaseChance = reader.ReadByte("Config", "BaseChance", RefineBaseChance);
             RefineTime = reader.ReadInt32("Config", "Time", RefineTime);
@@ -1243,8 +1272,8 @@ namespace Server
         }
         public static void SaveRefine()
         {
-            File.Delete(ConfigPath + @".\RefineSystem.ini");
-            InIReader reader = new InIReader(ConfigPath + @".\RefineSystem.ini");
+            File.Delete(Path.Combine(ConfigPath, "RefineSystem.ini"));
+            InIReader reader = new InIReader(Path.Combine(ConfigPath, "RefineSystem.ini"));
             reader.Write("Config", "OnlyRefineWeapon", OnlyRefineWeapon);
             reader.Write("Config", "BaseChance", RefineBaseChance);
             reader.Write("Config", "Time", RefineTime);
@@ -1261,12 +1290,12 @@ namespace Server
 
         public static void LoadMarriage()
         {
-            if (!File.Exists(ConfigPath + @".\MarriageSystem.ini"))
+            if (!File.Exists(Path.Combine(ConfigPath, "MarriageSystem.ini")))
             {
                 SaveMarriage();
                 return;
             }
-            InIReader reader = new InIReader(ConfigPath + @".\MarriageSystem.ini");
+            InIReader reader = new InIReader(Path.Combine(ConfigPath, "MarriageSystem.ini"));
             LoverEXPBonus = reader.ReadInt32("Config", "EXPBonus", LoverEXPBonus);
             MarriageCooldown = reader.ReadInt32("Config", "MarriageCooldown", MarriageCooldown);
             WeddingRingRecall = reader.ReadBoolean("Config", "AllowLoverRecall", WeddingRingRecall);
@@ -1275,8 +1304,8 @@ namespace Server
         }
         public static void SaveMarriage()
         {
-            File.Delete(ConfigPath + @".\MarriageSystem.ini");
-            InIReader reader = new InIReader(ConfigPath + @".\MarriageSystem.ini");
+            File.Delete(Path.Combine(ConfigPath, "MarriageSystem.ini"));
+            InIReader reader = new InIReader(Path.Combine(ConfigPath, "MarriageSystem.ini"));
             reader.Write("Config", "EXPBonus", LoverEXPBonus);
             reader.Write("Config", "MarriageCooldown", MarriageCooldown);
             reader.Write("Config", "AllowLoverRecall", WeddingRingRecall);
@@ -1286,12 +1315,12 @@ namespace Server
 
         public static void LoadMentor()
         {
-            if (!File.Exists(ConfigPath + @".\MentorSystem.ini"))
+            if (!File.Exists(Path.Combine(ConfigPath, "MentorSystem.ini")))
             {
                 SaveMentor();
                 return;
             }
-            InIReader reader = new InIReader(ConfigPath + @".\MentorSystem.ini");
+            InIReader reader = new InIReader(Path.Combine(ConfigPath, "MentorSystem.ini"));
             MentorLevelGap = reader.ReadByte("Config", "LevelGap", MentorLevelGap);
             MentorSkillBoost = reader.ReadBoolean("Config", "MenteeSkillBoost", MentorSkillBoost);
             MentorLength = reader.ReadByte("Config", "MentorshipLength", MentorLength);
@@ -1301,8 +1330,8 @@ namespace Server
         }
         public static void SaveMentor()
         {
-            File.Delete(ConfigPath + @".\MentorSystem.ini");
-            InIReader reader = new InIReader(ConfigPath + @".\MentorSystem.ini");
+            File.Delete(Path.Combine(ConfigPath, "MentorSystem.ini"));
+            InIReader reader = new InIReader(Path.Combine(ConfigPath, "MentorSystem.ini"));
             reader.Write("Config", "LevelGap", MentorLevelGap);
             reader.Write("Config", "MenteeSkillBoost", MentorSkillBoost);
             reader.Write("Config", "MentorshipLength", MentorLength);
@@ -1312,32 +1341,32 @@ namespace Server
         }
         public static void LoadGem()
         {
-            if (!File.Exists(ConfigPath + @".\GemSystem.ini"))
+            if (!File.Exists(Path.Combine(ConfigPath, "GemSystem.ini")))
             {
                 SaveGem();
                 return;
             }
-            InIReader reader = new InIReader(ConfigPath + @".\GemSystem.ini");
+            InIReader reader = new InIReader(Path.Combine(ConfigPath, "GemSystem.ini"));
             GemStatIndependent = reader.ReadBoolean("Config", "GemStatIndependent", GemStatIndependent);
 
 
         }
         public static void SaveGem()
         {
-            File.Delete(ConfigPath + @".\GemSystem.ini");
-            InIReader reader = new InIReader(ConfigPath + @".\GemSystem.ini");
+            File.Delete(Path.Combine(ConfigPath, "GemSystem.ini"));
+            InIReader reader = new InIReader(Path.Combine(ConfigPath, "GemSystem.ini"));
             reader.Write("Config", "GemStatIndependent", GemStatIndependent);
         }
 
         public static void LoadGoods()
         {
-            if (!File.Exists(ConfigPath + @".\GoodsSystem.ini"))
+            if (!File.Exists(Path.Combine(ConfigPath, "GoodsSystem.ini")))
             {
                 SaveGoods();
                 return;
             }
 
-            InIReader reader = new InIReader(ConfigPath + @".\GoodsSystem.ini");
+            InIReader reader = new InIReader(Path.Combine(ConfigPath, "GoodsSystem.ini"));
             GoodsOn = reader.ReadBoolean("Goods", "On", GoodsOn);
             GoodsMaxStored = reader.ReadUInt32("Goods", "MaxStored", GoodsMaxStored);
             GoodsBuyBackTime = reader.ReadUInt32("Goods", "BuyBackTime", GoodsBuyBackTime);
@@ -1345,8 +1374,8 @@ namespace Server
         }
         public static void SaveGoods()
         {
-            File.Delete(ConfigPath + @".\GoodsSystem.ini");
-            InIReader reader = new InIReader(ConfigPath + @".\GoodsSystem.ini");
+            File.Delete(Path.Combine(ConfigPath, "GoodsSystem.ini"));
+            InIReader reader = new InIReader(Path.Combine(ConfigPath, "GoodsSystem.ini"));
             reader.Write("Goods", "On", GoodsOn);
             reader.Write("Goods", "MaxStored", GoodsMaxStored);
             reader.Write("Goods", "BuyBackTime", GoodsBuyBackTime);

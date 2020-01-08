@@ -9,6 +9,16 @@ namespace Server.MirDatabase
 {
     public class DragonInfo
     {
+        protected static Envir Envir
+        {
+            get { return Envir.Main; }
+        }
+
+        protected static MessageQueue MessageQueue
+        {
+            get { return MessageQueue.Instance; }
+        }
+
         public const string ConfigFile = "Dragon.ini";
 
         public bool Enabled;
@@ -156,7 +166,7 @@ namespace Server.MirDatabase
                 DropInfo drop = DropInfo.FromLine(lines[i]);
                 if (drop == null)
                 {
-                    SMain.Enqueue(string.Format("Could not load Drop: DragonItem, Line {0}", lines[i]));
+                    MessageQueue.Enqueue(string.Format("Could not load Drop: DragonItem, Line {0}", lines[i]));
                     continue;
                 }
 
@@ -201,7 +211,7 @@ namespace Server.MirDatabase
                 else
                 {
                     if (parts.Length < 3) return null;
-                    info.Item = SMain.Envir.GetItemInfo(parts[1]);
+                    info.Item = Envir.GetItemInfo(parts[1]);
                     if (info.Item == null) return null;
                     if (!byte.TryParse(parts[2], out info.level)) return null;
                 }

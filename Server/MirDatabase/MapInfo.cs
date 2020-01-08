@@ -23,7 +23,15 @@ namespace Server.MirDatabase
         public LightSetting Light { get; set; }
         public byte MapDarkLight { get; set; } = 0;
         public byte MineIndex { get; set; } = 0;
+        protected static Envir Envir
+        {
+            get { return Envir.Main; }
+        }
 
+        protected static Envir EditEnvir
+        {
+            get { return Envir.Edit; }
+        }
         public bool NoTeleport { get; set; }
         public bool NoReconnect { get; set; }
         public bool NoRandom { get; set; }
@@ -102,7 +110,8 @@ namespace Server.MirDatabase
 
             NoTeleport = reader.ReadBoolean();
             NoReconnect = reader.ReadBoolean();
-            NoReconnectMap = reader.ReadString();
+            NoReconnectMap = reader.ReadString();           
+
             NoRandom = reader.ReadBoolean();
             NoEscape = reader.ReadBoolean();
             NoRecall = reader.ReadBoolean();
@@ -135,8 +144,11 @@ namespace Server.MirDatabase
             NoFight = reader.ReadBoolean();
 
             if (Envir.LoadVersion < 53) return;
-                Music = reader.ReadUInt16(); 
-
+                Music = reader.ReadUInt16();
+            if (Envir.LoadVersion < 78) return;
+            NoTownTeleport = reader.ReadBoolean();
+            if (Envir.LoadVersion < 79) return;
+            NoReincarnation = reader.ReadBoolean();
         }
 
         public void Save()
@@ -228,25 +240,26 @@ namespace Server.MirDatabase
             writer.Write(NoFight);
 
             writer.Write(Music);
+            writer.Write(NoTownTeleport);
+            writer.Write(NoReincarnation);
 
-            
         }
 
 
         public void CreateMap()
         {
-            for (int j = 0; j < SMain.Envir.NPCInfoList.Count; j++)
+            for (int j = 0; j < Envir.NPCInfoList.Count; j++)
             {
-                if (SMain.Envir.NPCInfoList[j].MapIndex != Index) continue;
+                if (Envir.NPCInfoList[j].MapIndex != Index) continue;
 
-                NPCs.Add(SMain.Envir.NPCInfoList[j]);
+                NPCs.Add(Envir.NPCInfoList[j]);
             }
 
             Map map = new Map(this);
 
             if (!map.Load()) return;
 
-            SMain.Envir.MapList.Add(map);
+            Envir.MapList.Add(map);
 
             if (Instance == null)
             {
@@ -255,7 +268,7 @@ namespace Server.MirDatabase
 
             for (int i = 0; i < SafeZones.Count; i++)
                 if (SafeZones[i].StartPoint)
-                    SMain.Envir.StartPoints.Add(SafeZones[i]);
+                    Envir.StartPoints.Add(SafeZones[i]);
         }
 
         public void CreateInstance()
@@ -265,7 +278,7 @@ namespace Server.MirDatabase
             Map map = new Map(this);
             if (!map.Load()) return;
 
-            SMain.Envir.MapList.Add(map);
+            Envir.MapList.Add(map);
 
             Instance.AddMap(map);
         }
@@ -277,7 +290,7 @@ namespace Server.MirDatabase
 
         public void CreateRespawnInfo()
         {
-            Respawns.Add(new RespawnInfo { RespawnIndex = ++SMain.EditEnvir.RespawnIndex });
+            Respawns.Add(new RespawnInfo { RespawnIndex = ++EditEnvir.RespawnIndex });
         }
 
         public override string ToString()

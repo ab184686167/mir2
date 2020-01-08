@@ -16,6 +16,11 @@ namespace Server.MirDatabase
         [Key]
         public int Index { get; set; }
 
+        protected static Envir EditEnvir
+        {
+            get { return Envir.Edit; }
+        }
+
         public string FileName { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
 
@@ -177,7 +182,7 @@ namespace Server.MirDatabase
             int x, y;
 
             info.FileName = data[0];
-            info.MapIndex = SMain.EditEnvir.MapInfoList.Where(d => d.FileName == data[1]).FirstOrDefault().Index;
+            info.MapIndex = EditEnvir.MapInfoList.Where(d => d.FileName == data[1]).FirstOrDefault().Index;
 
             if (!int.TryParse(data[2], out x)) return;
             if (!int.TryParse(data[3], out y)) return;
@@ -191,13 +196,13 @@ namespace Server.MirDatabase
             if (!ushort.TryParse(data[6], out outUShort)) return;
             info.Rate = outUShort;
 
-            info.Index = ++SMain.EditEnvir.NPCIndex;
-            SMain.EditEnvir.NPCInfoList.Add(info);
+            info.Index = ++EditEnvir.NPCIndex;
+            EditEnvir.NPCInfoList.Add(info);
         }
         public string ToText()
         {
             return string.Format("{0},{1},{2},{3},{4},{5},{6}",
-                FileName, SMain.EditEnvir.MapInfoList.Where(d => d.Index == MapIndex).FirstOrDefault().FileName, Location.X, Location.Y, Name, Image, Rate);
+                FileName, EditEnvir.MapInfoList.Where(d => d.Index == MapIndex).FirstOrDefault().FileName, Location.X, Location.Y, Name, Image, Rate);
         }
 
         public override string ToString()

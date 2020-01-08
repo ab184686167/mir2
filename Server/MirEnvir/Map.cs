@@ -13,9 +13,14 @@ namespace Server.MirEnvir
     {
         private static Envir Envir
         {
-            get { return SMain.Envir; }
+            get { return Envir.Main; }
         }
-        
+
+        protected static MessageQueue MessageQueue
+        {
+            get { return MessageQueue.Instance; }
+        }
+
         public MapInfo Info;
 
         public int Thread = 0;
@@ -472,7 +477,7 @@ namespace Server.MirEnvir
                         Respawns.Add(info);
 
                         if ((info.Info.SaveRespawnTime) && (info.Info.RespawnTicks != 0))
-                            SMain.Envir.SavedSpawns.Add(info);
+                            Envir.SavedSpawns.Add(info);
                     }
 
 
@@ -492,10 +497,10 @@ namespace Server.MirEnvir
             }
             catch (Exception ex)
             {
-                SMain.Enqueue(ex);
+                MessageQueue.Enqueue(ex);
             }
 
-            SMain.Enqueue("Failed to Load Map: " + Info.FileName);
+            MessageQueue.Enqueue("Failed to Load Map: " + Info.FileName);
             return false;
         }
 
@@ -765,7 +770,7 @@ namespace Server.MirEnvir
                         {
                             respawn.ErrorCount++;
 
-                            File.AppendAllText(@".\SpawnErrors.txt",
+                            File.AppendAllText(Path.Combine(Settings.ErrorPath, "SpawnErrors.txt"),
                                 String.Format("[{5}]Failed to spawn: mapindex: {0} ,mob info: index: {1} spawncoords ({2}:{3}) range {4}", respawn.Map.Info.Index, respawn.Info.MonsterIndex, respawn.Info.Location.X, respawn.Info.Location.Y, respawn.Info.Spread, DateTime.Now)
                                        + Environment.NewLine);
                             //*/
@@ -855,7 +860,7 @@ namespace Server.MirEnvir
                                 if (target.IsAttackTarget(player))
                                 {
                                     if (target.Attacked(player, value, DefenceType.MAC, false) > 0)
-                                        player.LevelMagic(magic);
+                                        train = true;
                                     return;
                                 }
                                 break;
@@ -1903,7 +1908,9 @@ namespace Server.MirEnvir
 
                 case Spell.Trap:
                     value = (int)data[2];
-                    location = (Point)data[3];
+                    //location = (Point)data[3];
+                    MapObject originalTarget = (MapObject)data[3];
+                    location = originalTarget.CurrentLocation;
                     MonsterObject selectTarget = null;
 
                     if (!ValidPoint(location)) break;
@@ -2305,6 +2312,11 @@ namespace Server.MirEnvir
     }
     public class MapRespawn
     {
+        protected static Envir Envir
+        {
+            get { return Envir.Main; }
+        }
+
         public RespawnInfo Info;
         public MonsterInfo Monster;
         public Map Map;
@@ -2318,7 +2330,7 @@ namespace Server.MirEnvir
         public MapRespawn(RespawnInfo info)
         {
             Info = info;
-            Monster = SMain.Envir.GetMonsterInfo(info.MonsterIndex);
+            Monster = Envir.GetMonsterInfo(info.MonsterIndex);
 
             LoadRoutes();
         }

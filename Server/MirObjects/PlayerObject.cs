@@ -9,13 +9,15 @@ using Server.MirEnvir;
 using Server.MirNetwork;
 using S = ServerPackets;
 using System.Text.RegularExpressions;
-using System.Windows.Forms;
 using Server.MirObjects.Monsters;
 
 namespace Server.MirObjects
 {
     public sealed class PlayerObject : MapObject
     {
+        private long NextTradeTime;
+        private long NextGroupInviteTime;
+
         public string GMPassword = Settings.GMPassword;
         public bool IsGM, GMLogin, GMNeverDie, GMGameMaster, EnableGroupRecall, EnableGuildInvite, AllowMarriage, AllowLoverRecall, AllowMentor, HasMapShout, HasServerShout;
 
@@ -239,7 +241,7 @@ namespace Server.MirObjects
         {
             get
             {
-                return SMain.Envir.DefaultNPC;
+                return Envir.DefaultNPC;
             }
         }
 
@@ -354,7 +356,7 @@ namespace Server.MirObjects
             if (Account.AdminAccount)
             {
                 IsGM = true;
-                SMain.Enqueue(string.Format("{0} is now a GM", Name));
+                MessageQueue.Enqueue(string.Format("{0} is now a GM", Name));
             }
 
             if (Level == 0) NewCharacter();
@@ -417,7 +419,7 @@ namespace Server.MirObjects
                     }
                     catch
                     {
-                        SMain.EnqueueDebugging(Name + " Pet logout was null on logout : " + pet != null ? pet.Name : "" + " " + pet.CurrentMap != null ? pet.CurrentMap.Info.FileName : "");
+                        MessageQueue.EnqueueDebugging(Name + " Pet logout was null on logout : " + pet != null ? pet.Name : "" + " " + pet.CurrentMap != null ? pet.CurrentMap.Info.FileName : "");
                     }
                 }
             }
@@ -488,7 +490,7 @@ namespace Server.MirObjects
 
             string logReason = LogOutReason(reason);
 
-            SMain.Enqueue(logReason);
+            MessageQueue.Enqueue(logReason);
 
             Fishing = false;
 
@@ -540,7 +542,7 @@ namespace Server.MirObjects
             SetBind();
 
             Level = 1;
-            Hair = (byte)SMain.Envir.Random.Next(0, 9);
+            Hair = (byte)Envir.Random.Next(0, 9);
 
 
             for (int i = 0; i < Envir.StartItems.Count; i++)
@@ -662,7 +664,7 @@ namespace Server.MirObjects
 
             if (NewMail)
             {
-                ReceiveChat("New mail has arrived.", ChatType.System);
+                ReceiveChat(GameLanguage.NewMail, ChatType.System);
 
                 GetMail();
             }
@@ -800,7 +802,7 @@ namespace Server.MirObjects
             if (Concentrating && !ConcentrateInterrupted && (ConcentrateInterruptTime != 0))
             {
                 //check for reenable
-                if (ConcentrateInterruptTime <= SMain.Envir.Time)
+                if (ConcentrateInterruptTime <= Envir.Time)
                 {
                     ConcentrateInterruptTime = 0;
                     UpdateConcentration();//Update & send to client
@@ -1133,6 +1135,19 @@ namespace Server.MirObjects
 
                 ReceiveChat($"The rental lock has been removed from {item.Info.FriendlyName}.", ChatType.Hint);
                 item.RentalInformation = null;
+            }
+
+            for (int i = 0; i < Info.AccountInfo.Storage.Length; i++)
+            {
+                var item = Info.AccountInfo.Storage[i];
+                if (item?.ExpireInfo?.ExpiryDate <= Envir.Now)
+                {
+                    ReceiveChat($"{item.Info.FriendlyName} has just expired from your storage.", ChatType.Hint);
+                    Enqueue(new S.DeleteItem { UniqueID = item.UniqueID, Count = item.Count });
+                    Info.AccountInfo.Storage[i] = null;
+
+                    continue;
+                }
             }
         }
 
@@ -1746,9 +1761,9 @@ namespace Server.MirObjects
             if ((LastRankUpdate + 3600 * 1000) > Envir.Time)
             {
                 LastRankUpdate = Envir.Time;
-                if ((Level >= SMain.Envir.RankBottomLevel[0]) || (Level >= SMain.Envir.RankBottomLevel[(byte)Class + 1]))
+                if ((Level >= Envir.RankBottomLevel[0]) || (Level >= Envir.RankBottomLevel[(byte)Class + 1]))
                 {
-                    SMain.Envir.CheckRankUpdate(Info);
+                    Envir.CheckRankUpdate(Info);
                 }
             }
         }
@@ -1778,10 +1793,10 @@ namespace Server.MirObjects
             }
             Report.Levelled(Level);
             if (IsGM) return;
-            if ((Level >= SMain.Envir.RankBottomLevel[0]) || (Level >= SMain.Envir.RankBottomLevel[(byte)Class + 1]))
+            if ((Level >= Envir.RankBottomLevel[0]) || (Level >= Envir.RankBottomLevel[(byte)Class + 1]))
             {
 
-                SMain.Envir.CheckRankUpdate(Info);
+                Envir.CheckRankUpdate(Info);
             }
         }
 
@@ -2033,7 +2048,7 @@ namespace Server.MirObjects
                 Info.Magics[i].CastTime = Envir.Time > TimeSpend ? Envir.Time - TimeSpend : 0;
             }
             Enqueue(new S.StartGame { Result = 4, Resolution = Settings.AllowedResolution });
-            ReceiveChat("Welcome to the Legend of Mir 2 Crystal Server.", ChatType.Hint);
+            ReceiveChat(string.Format(GameLanguage.Welcome, GameLanguage.GameName), ChatType.Hint);
 
             if (Settings.TestServer)
             {
@@ -2182,13 +2197,13 @@ namespace Server.MirObjects
 
             Report.Connected(Connection.IPAddress);
 
-            SMain.Enqueue(string.Format("{0} has connected.", Info.Name));
+            MessageQueue.Enqueue(string.Format("{0} has connected.", Info.Name));
             
             if (IsGM) return;
             LastRankUpdate = Envir.Time;
-            if ((Level >= SMain.Envir.RankBottomLevel[0]) || (Level >= SMain.Envir.RankBottomLevel[(byte)Class + 1]))
+            if ((Level >= Envir.RankBottomLevel[0]) || (Level >= Envir.RankBottomLevel[(byte)Class + 1]))
             {
-                SMain.Envir.CheckRankUpdate(Info);
+                Envir.CheckRankUpdate(Info);
             }
 
         }
@@ -3433,20 +3448,20 @@ namespace Server.MirObjects
         {
             if (string.IsNullOrEmpty(message)) return;
 
-            SMain.EnqueueChat(string.Format("{0}: {1}", Name, message));
+            MessageQueue.EnqueueChat(string.Format("{0}: {1}", Name, message));
 
             if (GMLogin)
             {
                 if (message == GMPassword)
                 {
                     IsGM = true;
-                    SMain.Enqueue(string.Format("{0} is now a GM", Name));
+                    MessageQueue.Enqueue(string.Format("{0} is now a GM", Name));
                     ReceiveChat("You have been made a GM", ChatType.System);
                     Envir.RemoveRank(Info);//remove gm chars from ranking to avoid causing bugs in rank list
                 }
                 else
                 {
-                    SMain.Enqueue(string.Format("{0} attempted a GM login", Name));
+                    MessageQueue.Enqueue(string.Format("{0} attempted a GM login", Name));
                     ReceiveChat("Incorrect login password", ChatType.System);
                 }
                 GMLogin = false;
@@ -3730,7 +3745,7 @@ namespace Server.MirObjects
                         data.Deleted = false;
 
                         ReceiveChat(string.Format("Player {0} has been restored by", data.Name), ChatType.System);
-                        SMain.Enqueue(string.Format("Player {0} has been restored by {1}", data.Name, Name));
+                        MessageQueue.Enqueue(string.Format("Player {0} has been restored by {1}", data.Name, Name));
 
                         break;
 
@@ -3752,7 +3767,7 @@ namespace Server.MirObjects
                         }
 
                         ReceiveChat(string.Format("Player {0} has been changed to {1}", data.Name, data.Gender), ChatType.System);
-                        SMain.Enqueue(string.Format("Player {0} has been changed to {1} by {2}", data.Name, data.Gender, Name));
+                        MessageQueue.Enqueue(string.Format("Player {0} has been changed to {1} by {2}", data.Name, data.Gender, Name));
 
                         if (data.Player != null)
                             data.Player.Connection.LogOut();
@@ -3778,7 +3793,7 @@ namespace Server.MirObjects
                                 player.LevelUp();
 
                                 ReceiveChat(string.Format("Player {0} has been Leveled {1} -> {2}.", player.Name, old, player.Level), ChatType.System);
-                                SMain.Enqueue(string.Format("Player {0} has been Leveled {1} -> {2} by {3}", player.Name, old, player.Level, Name));
+                                MessageQueue.Enqueue(string.Format("Player {0} has been Leveled {1} -> {2} by {3}", player.Name, old, player.Level, Name));
                                 return;
                             }
                         }
@@ -3796,8 +3811,8 @@ namespace Server.MirObjects
                                 Level = level;
                                 LevelUp();
 
-                                ReceiveChat(string.Format("Leveled {0} -> {1}.", old, Level), ChatType.System);
-                                SMain.Enqueue(string.Format("Player {0} has been Leveled {1} -> {2} by {3}", Name, old, Level, Name));
+                                ReceiveChat(string.Format("{0} {1} -> {2}.", GameLanguage.LevelUp, old, Level), ChatType.System);
+                                MessageQueue.Enqueue(string.Format("Player {0} has been Leveled {1} -> {2} by {3}", Name, old, Level, Name));
                                 return;
                             }
                         }
@@ -3837,7 +3852,7 @@ namespace Server.MirObjects
                         }
 
                         ReceiveChat(string.Format("{0} x{1} has been created.", iInfo.Name, tempCount), ChatType.System);
-                        SMain.Enqueue(string.Format("Player {0} has attempted to Create {1} x{2}", Name, iInfo.Name, tempCount));
+                        MessageQueue.Enqueue(string.Format("Player {0} has attempted to Create {1} x{2}", Name, iInfo.Name, tempCount));
                         break;
                     case "CLEARBUFFS":
                         foreach (var buff in Buffs)
@@ -4209,7 +4224,7 @@ namespace Server.MirObjects
 
                         if (instanceID < 1) instanceID = 1;
 
-                        var map = SMain.Envir.GetMapByNameAndInstance(parts[1], instanceID);
+                        var map = Envir.GetMapByNameAndInstance(parts[1], instanceID);
                         if (map == null)
                         {
                             ReceiveChat((string.Format("Map {0}:[{1}] could not be found", parts[1], instanceID)), ChatType.System);
@@ -4361,7 +4376,7 @@ namespace Server.MirObjects
                             count = uint.MaxValue - player.Account.Gold;
 
                         player.GainGold(count);
-                        SMain.Enqueue(string.Format("Player {0} has been given {1} gold", player.Name, count));
+                        MessageQueue.Enqueue(string.Format("Player {0} has been given {1} gold", player.Name, count));
                         break;
 
                     case "GIVEPEARLS":
@@ -4390,9 +4405,9 @@ namespace Server.MirObjects
 
                         player.IntelligentCreatureGainPearls((int)count);
                         if (count > 1)
-                            SMain.Enqueue(string.Format("Player {0} has been given {1} pearls", player.Name, count));
+                            MessageQueue.Enqueue(string.Format("Player {0} has been given {1} pearls", player.Name, count));
                         else
-                            SMain.Enqueue(string.Format("Player {0} has been given {1} pearl", player.Name, count));
+                            MessageQueue.Enqueue(string.Format("Player {0} has been given {1} pearl", player.Name, count));
                         break;
                     case "GIVECREDIT":
                         if ((!IsGM && !Settings.TestServer) || parts.Length < 2) return;
@@ -4419,7 +4434,7 @@ namespace Server.MirObjects
                             count = uint.MaxValue - player.Account.Credit;
 
                         player.GainCredit(count);
-                        SMain.Enqueue(string.Format("Player {0} has been given {1} credit", player.Name, count));
+                        MessageQueue.Enqueue(string.Format("Player {0} has been given {1} credit", player.Name, count));
                         break;
                     case "GIVESKILL":
                         if ((!IsGM && !Settings.TestServer) || parts.Length < 3) return;
@@ -4685,7 +4700,7 @@ namespace Server.MirObjects
                         data.Class = mirClass;
 
                         ReceiveChat(string.Format("Player {0} has been changed to {1}", data.Name, data.Class), ChatType.System);
-                        SMain.Enqueue(string.Format("Player {0} has been changed to {1} by {2}", data.Name, data.Class, Name));
+                        MessageQueue.Enqueue(string.Format("Player {0} has been changed to {1} by {2}", data.Name, data.Class, Name));
 
                         if (data.Player != null)
                             data.Player.Connection.LogOut();
@@ -4700,7 +4715,7 @@ namespace Server.MirObjects
 
                         if (parts.Length < 2)
                         {
-                            Info.Hair = (byte)SMain.Envir.Random.Next(0, 9);
+                            Info.Hair = (byte)Envir.Random.Next(0, 9);
                         }
                         else
                         {
@@ -4843,7 +4858,7 @@ namespace Server.MirObjects
 
                         if (MyGuild == null)
                         {
-                            ReceiveChat("You are not in a guild.", ChatType.System);
+                            ReceiveChat(GameLanguage.NotInGuild, ChatType.System);
                         }
 
                         if (MyGuild.Ranks[0] != MyGuildRank)
@@ -4887,11 +4902,11 @@ namespace Server.MirObjects
                                 Account.Gold -= openGold;
                                 Enqueue(new S.LoseGold { Gold = openGold });
                                 Enqueue(new S.ResizeInventory { Size = Info.ResizeInventory() });
-                                ReceiveChat("Inventory size increased.", ChatType.System);
+                                ReceiveChat(GameLanguage.InventoryIncreased, ChatType.System);
                             }
                             else
                             {
-                                ReceiveChat("Not enough gold.", ChatType.System);
+                                ReceiveChat(GameLanguage.LowGold, ChatType.System);
                             }
                             ChatTime = 0;
                         }
@@ -4910,12 +4925,12 @@ namespace Server.MirObjects
                                 if (Account.ExpandedStorageExpiryDate > Envir.Now)
                                 {
                                     Account.ExpandedStorageExpiryDate = Account.ExpandedStorageExpiryDate + addedTime;
-                                    ReceiveChat("Expanded storage time extended, expires on: " + Account.ExpandedStorageExpiryDate.ToString(), ChatType.System);
+                                    ReceiveChat(GameLanguage.ExpandedStorageExpiresOn + Account.ExpandedStorageExpiryDate.ToString(), ChatType.System);
                                 }
                                 else
                                 {
                                     Account.ExpandedStorageExpiryDate = Envir.Now + addedTime;
-                                    ReceiveChat("Storage expanded, expires on: " + Account.ExpandedStorageExpiryDate.ToString(), ChatType.System);
+                                    ReceiveChat(GameLanguage.ExpandedStorageExpiresOn + Account.ExpandedStorageExpiryDate.ToString(), ChatType.System);
                                 }
 
                                 Enqueue(new S.LoseGold { Gold = cost });
@@ -4923,7 +4938,7 @@ namespace Server.MirObjects
                             }
                             else
                             {
-                                ReceiveChat("Not enough gold.", ChatType.System);
+                                ReceiveChat(GameLanguage.LowGold, ChatType.System);
                             }
                             ChatTime = 0;
                         }
@@ -5064,7 +5079,7 @@ namespace Server.MirObjects
                     case "CREATEMAPINSTANCE": //TEST CODE
                         if (!IsGM || parts.Length < 2) return;
 
-                        map = SMain.Envir.GetMapByNameAndInstance(parts[1]);
+                        map = Envir.GetMapByNameAndInstance(parts[1]);
 
                         if (map == null)
                         {
@@ -5105,7 +5120,7 @@ namespace Server.MirObjects
                         }
                         else return;
                         ReceiveChat(string.Format("{0} War Started.", tempConq.Info.Name), ChatType.System);
-                        SMain.Enqueue(string.Format("{0} War Started.", tempConq.Info.Name));
+                        MessageQueue.Enqueue(string.Format("{0} War Started.", tempConq.Info.Name));
                         break;
                     case "RESETCONQUEST":
                         //Needs some work, but does job for now.
@@ -5467,10 +5482,10 @@ namespace Server.MirObjects
             if (Concentrating)
             {
                 if (ConcentrateInterrupted)
-                    ConcentrateInterruptTime = SMain.Envir.Time + 3000;// needs adjusting
+                    ConcentrateInterruptTime = Envir.Time + 3000;// needs adjusting
                 else
                 {
-                    ConcentrateInterruptTime = SMain.Envir.Time + 3000;// needs adjusting
+                    ConcentrateInterruptTime = Envir.Time + 3000;// needs adjusting
                     ConcentrateInterrupted = true;
                     UpdateConcentration();//Update & send to client
                 }
@@ -5557,10 +5572,10 @@ namespace Server.MirObjects
             if (Concentrating)
             {
                 if (ConcentrateInterrupted)
-                    ConcentrateInterruptTime = SMain.Envir.Time + 3000;// needs adjusting
+                    ConcentrateInterruptTime = Envir.Time + 3000;// needs adjusting
                 else
                 {
-                    ConcentrateInterruptTime = SMain.Envir.Time + 3000;// needs adjusting
+                    ConcentrateInterruptTime = Envir.Time + 3000;// needs adjusting
                     ConcentrateInterrupted = true;
                     UpdateConcentration();//Update & send to client
                 }
@@ -5739,10 +5754,10 @@ namespace Server.MirObjects
                 if (Concentrating)
                 {
                     if (ConcentrateInterrupted)
-                        ConcentrateInterruptTime = SMain.Envir.Time + 3000;// needs adjusting
+                        ConcentrateInterruptTime = Envir.Time + 3000;// needs adjusting
                     else
                     {
-                        ConcentrateInterruptTime = SMain.Envir.Time + 3000;// needs adjusting
+                        ConcentrateInterruptTime = Envir.Time + 3000;// needs adjusting
                         ConcentrateInterrupted = true;
                         UpdateConcentration();//Update & send to client
                     }
@@ -5815,7 +5830,7 @@ namespace Server.MirObjects
                 damage = (int)(damage * Math.Max(1, (distance * 0.35)));//range boost
                 damage = ApplyArcherState(damage);
                 int chanceToHit = 60 + (Focus ? 30 : 0) - (int)(distance * 1.5);
-                int hitChance = SMain.Envir.Random.Next(100); // Randomise a number between minimum chance and 100       
+                int hitChance = Envir.Random.Next(100); // Randomise a number between minimum chance and 100       
 
                 if (hitChance < chanceToHit)
                 {
@@ -6046,16 +6061,7 @@ namespace Server.MirObjects
                 if (magic != null)
                 {
                     if (FatalSword)
-                    {
                         damageFinal = magic.GetDamage(damageBase);
-                        LevelMagic(magic);
-                        S.ObjectEffect p = new S.ObjectEffect { ObjectID = ob.ObjectID, Effect = SpellEffect.FatalSword };
-
-                        defence = DefenceType.Agility;
-                        CurrentMap.Broadcast(p, ob.CurrentLocation);
-
-                        FatalSword = false;
-                    }
 
                     if (!FatalSword && Envir.Random.Next(10) == 0)
                         FatalSword = true;
@@ -6163,16 +6169,15 @@ namespace Server.MirObjects
                         magic = GetMagic(Spell.TwinDrakeBlade);
                         damageFinal = magic.GetDamage(damageBase);
                         TwinDrakeBlade = false;
-                        action = new DelayedAction(DelayedType.Damage, Envir.Time + 400, ob, damageFinal, DefenceType.Agility, false);
+                        action = new DelayedAction(DelayedType.Damage, Envir.Time + 400,
+                            ob,                     //Object (Target)
+                            damageFinal,            //Damage
+                            DefenceType.Agility,    //Defence to target
+                            false,                  //Damage Weapon
+                            magic,                  //Magic
+                            true);                  //Final hit
                         ActionList.Add(action);
                         LevelMagic(magic);
-
-                        if ((((ob.Race != ObjectType.Player) || Settings.PvpCanResistPoison) && (Envir.Random.Next(Settings.PoisonAttackWeight) >= ob.PoisonResist)) && (ob.Level < Level + 10 && Envir.Random.Next(ob.Race == ObjectType.Player ? 40 : 20) <= magic.Level + 1))
-                        {
-                            ob.ApplyPoison(new Poison { PType = PoisonType.Stun, Duration = ob.Race == ObjectType.Player ? 2 : 2 + magic.Level, TickSpeed = 1000 }, this);
-                            ob.Broadcast(new S.ObjectEffect { ObjectID = ob.ObjectID, Effect = SpellEffect.TwinDrakeBlade });
-                        }
-
                         break;
                     case Spell.FlamingSword:
                         magic = GetMagic(Spell.FlamingSword);
@@ -6281,6 +6286,13 @@ namespace Server.MirObjects
             {
                 if (Info.Equipment[(int)EquipmentSlot.Weapon] == null) return;
                 if (!Info.Equipment[(int)EquipmentSlot.Weapon].Info.CanMine) return;
+                if (Info.Equipment[(int)EquipmentSlot.Weapon].CurrentDura <= 0)//Stop dura 0 working. use below if you wish to break the item.
+                /*{
+                    Enqueue(new S.DeleteItem { UniqueID = Info.Equipment[(int)EquipmentSlot.Weapon].UniqueID, Count = Info.Equipment[(int)EquipmentSlot.Weapon].Count });
+                    Info.Equipment[(int)EquipmentSlot.Weapon] = null;
+                    RefreshStats();*/
+                    return;
+                /*}*/
                 if (CurrentMap.Mine == null) return;
                 MineSpot Mine = CurrentMap.Mine[target.X, target.Y];
                 if ((Mine == null) || (Mine.Mine == null)) return;
@@ -6622,10 +6634,11 @@ namespace Server.MirObjects
                     PetEnhancer(target, magic, out cast);
                     break;
                 case Spell.TrapHexagon:
-                    TrapHexagon(magic, target, out cast);
+                    TrapHexagon(magic, target == null ? location : target.CurrentLocation, out cast);
                     break;
                 case Spell.Reincarnation:
-                    Reincarnation(magic, target == null ? null : target as PlayerObject, out cast);
+                    if (!CurrentMap.Info.NoReincarnation)
+                        Reincarnation(magic, target == null ? null : target as PlayerObject, out cast);
                     break;
                 case Spell.Curse:
                     Curse(magic, target == null ? location : target.CurrentLocation, out cast);
@@ -7428,15 +7441,39 @@ namespace Server.MirObjects
             CurrentMap.ActionList.Add(action);
             cast = true;
         }
-        private void TrapHexagon(UserMagic magic, MapObject target, out bool cast)
+        private void TrapHexagon(UserMagic magic, Point location, out bool cast)
         {
             cast = false;
-
-            if (target == null || !target.IsAttackTarget(this) || !(target is MonsterObject)) return;
-            if (target.Level > Level + 2) return;
+            bool anyTargetsFound = false;
+            for (int x = location.X - 1; x <= location.X + 1; x++)
+            {
+                if (x < 0 || x >= CurrentMap.Width) continue;
+                for (int y = location.Y - 1; y < location.Y + 1; y++)
+                {
+                    if (y < 0 || y >= CurrentMap.Height) continue;
+                    if (!CurrentMap.ValidPoint(x, y)) continue;
+                    var cell = CurrentMap.GetCell(x, y);
+                    if (cell == null ||
+                        cell.Objects == null ||
+                        cell.Objects.Count <= 0) continue;
+                    foreach (var target in cell.Objects)
+                    {
+                        switch (target.Race)
+                        {
+                            case ObjectType.Monster:
+                                if (!target.IsAttackTarget(this)) continue;
+                                if (target.Level > Level + 2) continue;
+                                anyTargetsFound = true;
+                                break;
+                        }
+                    }
+                }
+            }
+            if (!anyTargetsFound)
+                return;
 
             UserItem item = GetAmulet(1);
-            Point location = target.CurrentLocation;
+            //Point location = target.CurrentLocation;
 
             if (item == null) return;
 
@@ -7697,7 +7734,7 @@ namespace Server.MirObjects
             loc[0] = Functions.PointMove(CurrentLocation, Functions.PreviousDir(Direction), 1);
             loc[1] = Functions.PointMove(CurrentLocation, Direction, 1);
             loc[2] = Functions.PointMove(CurrentLocation, Functions.NextDir(Direction), 1);
-
+            bool train = false;
             for (int i = 0; i < col; i++)
             {
                 Point startPoint = loc[i];
@@ -7722,13 +7759,15 @@ namespace Server.MirObjects
                                 if (target.IsAttackTarget(this))
                                 {
                                     if (target.Attacked(this, j <= 1 ? damageFinal : (int)(damageFinal * 0.6), DefenceType.MAC, false) > 0)
-                                        LevelMagic(magic);
+                                        train = true;
                                 }
                                 break;
                         }
                     }
                 }
             }
+            if (train)
+                LevelMagic(magic);
         }
         private void ProtectionField(UserMagic magic)
         {
@@ -8074,13 +8113,13 @@ namespace Server.MirObjects
             if (target == null || !target.IsAttackTarget(this) || !(target is MonsterObject)) return;
             if (target.Level >= Level + 2) return;
 
-            Point location = target.CurrentLocation;
+            //Point location = target.CurrentLocation;
 
             LevelMagic(magic);
             uint duration = 60000;
             int value = (int)duration;
 
-            DelayedAction action = new DelayedAction(DelayedType.Magic, Envir.Time + 500, this, magic, value, location);
+            DelayedAction action = new DelayedAction(DelayedType.Magic, Envir.Time + 500, this, magic, value, target);
             CurrentMap.ActionList.Add(action);
             cast = true;
         }
@@ -9357,10 +9396,39 @@ namespace Server.MirObjects
             int damage = (int)data[1];
             DefenceType defence = (DefenceType)data[2];
             bool damageWeapon = (bool)data[3];
-
+            UserMagic userMagic = null;
+            bool finalHit = false;
+            if (data.Count >= 5)
+                userMagic = (UserMagic)data[4];
+            if (data.Count >= 6)
+                finalHit = (bool)data[5];
             if (target == null || !target.IsAttackTarget(this) || target.CurrentMap != CurrentMap || target.Node == null) return;
 
+            if (FatalSword)
+                defence = DefenceType.Agility;
+
             if (target.Attacked(this, damage, defence, damageWeapon) <= 0) return;
+            if (FatalSword)
+            {
+                S.ObjectEffect p = new S.ObjectEffect { ObjectID = target.ObjectID, Effect = SpellEffect.FatalSword };
+                CurrentMap.Broadcast(p, target.CurrentLocation);
+                FatalSword = false;
+                var magic = GetMagic(Spell.FatalSword);
+                if (magic != null) LevelMagic(magic);
+            }
+            if (userMagic != null && finalHit)
+            {
+                if (userMagic.Spell == Spell.TwinDrakeBlade)
+                {
+                    if ((((target.Race != ObjectType.Player) || Settings.PvpCanResistPoison) &&
+                        (Envir.Random.Next(Settings.PoisonAttackWeight) >= target.PoisonResist)) &&
+                        (target.Level < Level + 10 && Envir.Random.Next(target.Race == ObjectType.Player ? 40 : 20) <= userMagic.Level + 1))
+                    {
+                        target.ApplyPoison(new Poison { PType = PoisonType.Stun, Duration = target.Race == ObjectType.Player ? 2 : 2 + userMagic.Level, TickSpeed = 1000 }, this);
+                        target.Broadcast(new S.ObjectEffect { ObjectID = target.ObjectID, Effect = SpellEffect.TwinDrakeBlade });
+                    }
+                }
+            }
 
             //Level Fencing / SpiritSword
             foreach (UserMagic magic in Info.Magics)
@@ -9407,7 +9475,7 @@ namespace Server.MirObjects
                 }
                 else
                 {
-                    NPCObject obj = SMain.Envir.Objects.FirstOrDefault(x => x.ObjectID == npcid) as NPCObject;
+                    NPCObject obj = Envir.Objects.FirstOrDefault(x => x.ObjectID == npcid) as NPCObject;
 
                     if (obj != null)
                         obj.Call(this, page);
@@ -10003,72 +10071,33 @@ namespace Server.MirObjects
         }
         public override int Attacked(PlayerObject attacker, int damage, DefenceType type = DefenceType.ACAgility, bool damageWeapon = true)
         {
-            int armour = 0;
 
-                for (int i = 0; i < Buffs.Count; i++)
-                {
-                    switch (Buffs[i].Type)
-                    {
-                        case BuffType.MoonLight:
-                        case BuffType.DarkBody:
-                            Buffs[i].ExpireTime = 0;
-                            break;
-                        case BuffType.EnergyShield:
-                            int rate = Buffs[i].Values[0];
 
-                            if (Envir.Random.Next(rate) == 0)
-                            {
-                            if (HP + ( (ushort)Buffs[i].Values[1] ) >= MaxHP)
-                                    SetHP(MaxHP);
-                                else
-                                    ChangeHP(Buffs[i].Values[1]);
-                            }
-                            break;
-                    }
-                }
-
-            switch (type)
+            for (int i = 0; i < Buffs.Count; i++)
             {
-                case DefenceType.ACAgility:
-                    if (Envir.Random.Next(Agility + 1) > attacker.Accuracy)
-                    {
-                        BroadcastDamageIndicator(DamageType.Miss);
-                        return 0;
-                    }
-                    armour = GetDefencePower(MinAC, MaxAC);
-                    break;
-                case DefenceType.AC:
-                    armour = GetDefencePower(MinAC, MaxAC);
-                    break;
-                case DefenceType.MACAgility:
-                    if ((Settings.PvpCanResistMagic) && (Envir.Random.Next(Settings.MagicResistWeight) < MagicResist))
-                    {
-                        BroadcastDamageIndicator(DamageType.Miss);
-                        return 0;
-                    }
-                    if (Envir.Random.Next(Agility + 1) > attacker.Accuracy)
-                    {
-                        BroadcastDamageIndicator(DamageType.Miss);
-                        return 0;
-                    }
-                    armour = GetDefencePower(MinMAC, MaxMAC);
-                    break;
-                case DefenceType.MAC:
-                    if ((Settings.PvpCanResistMagic) && (Envir.Random.Next(Settings.MagicResistWeight) < MagicResist))
-                    {
-                        BroadcastDamageIndicator(DamageType.Miss);
-                        return 0;
-                    }
-                    armour = GetDefencePower(MinMAC, MaxMAC);
-                    break;
-                case DefenceType.Agility:
-                    if (Envir.Random.Next(Agility + 1) > attacker.Accuracy)
-                    {
-                        BroadcastDamageIndicator(DamageType.Miss);
-                        return 0;
-                    }
-                    break;
+                switch (Buffs[i].Type)
+                {
+                    case BuffType.MoonLight:
+                    case BuffType.DarkBody:
+                        Buffs[i].ExpireTime = 0;
+                        break;
+                    case BuffType.EnergyShield:
+                        int rate = Buffs[i].Values[0];
+
+                        if (Envir.Random.Next(rate) == 0)
+                        {
+                            if (HP + ((ushort)Buffs[i].Values[1]) >= MaxHP)
+                                SetHP(MaxHP);
+                            else
+                                ChangeHP(Buffs[i].Values[1]);
+                        }
+                        break;
+                }
             }
+
+            var armour = GetArmour(type, attacker, out bool hit);
+            if (!hit)
+                return 0;
 
             armour = (int)Math.Max(int.MinValue, (Math.Min(int.MaxValue, (decimal)(armour * ArmourRate))));
             damage = (int)Math.Max(int.MinValue, (Math.Min(int.MaxValue, (decimal)(damage * DamageRate))));
@@ -10149,21 +10178,7 @@ namespace Server.MirObjects
 
             ushort LevelOffset = (byte)(Level > attacker.Level ? 0 : Math.Min(10, attacker.Level - Level));
 
-            if (attacker.HasParalysisRing && type != DefenceType.MAC && type != DefenceType.MACAgility && 1 == Envir.Random.Next(1, 15))
-            {
-                ApplyPoison(new Poison { PType = PoisonType.Paralysis, Duration = 5, TickSpeed = 1000 }, attacker);
-            }
-            if ((attacker.Freezing > 0) && (Settings.PvpCanFreeze) && type != DefenceType.MAC && type != DefenceType.MACAgility)
-            {
-                if ((Envir.Random.Next(Settings.FreezingAttackWeight) < attacker.Freezing) && (Envir.Random.Next(LevelOffset) == 0))
-                    ApplyPoison(new Poison { PType = PoisonType.Slow, Duration = Math.Min(10, (3 + Envir.Random.Next(attacker.Freezing))), TickSpeed = 1000 }, attacker);
-            }
-
-            if (attacker.PoisonAttack > 0 && type != DefenceType.MAC && type != DefenceType.MACAgility)
-            {
-                if ((Envir.Random.Next(Settings.PoisonAttackWeight) < attacker.PoisonAttack) && (Envir.Random.Next(LevelOffset) == 0))
-                    ApplyPoison(new Poison { PType = PoisonType.Green, Duration = 5, TickSpeed = 1000, Value = Math.Min(10, 3 + Envir.Random.Next(attacker.PoisonAttack)) }, attacker);
-            }
+            ApplyNegativeEffects(attacker, type, LevelOffset);
 
             attacker.GatherElement();
 
@@ -10183,71 +10198,31 @@ namespace Server.MirObjects
         }
         public override int Attacked(MonsterObject attacker, int damage, DefenceType type = DefenceType.ACAgility)
         {
-            int armour = 0;
-
-                for (int i = 0; i < Buffs.Count; i++)
-                {
-                    switch (Buffs[i].Type)
-                    {
-                        case BuffType.MoonLight:
-                        case BuffType.DarkBody:
-                            Buffs[i].ExpireTime = 0;
-                            break;
-                        case BuffType.EnergyShield:
-                            int rate = Buffs[i].Values[0];
-
-                            if (Envir.Random.Next(rate < 2 ? 2 : rate) == 0)
-                            {
-                                if (HP + ((ushort)Buffs[i].Values[1]) >= MaxHP)
-                                    SetHP(MaxHP);
-                                else
-                                    ChangeHP(Buffs[i].Values[1]);
-                            }
-                            break;
-                    }
-                }
-
-            switch (type)
+            for (int i = 0; i < Buffs.Count; i++)
             {
-                case DefenceType.ACAgility:
-                    if (Envir.Random.Next(Agility + 1) > attacker.Accuracy)
-                    {
-                        BroadcastDamageIndicator(DamageType.Miss);
-                        return 0;
-                    }
-                    armour = GetDefencePower(MinAC, MaxAC);
-                    break;
-                case DefenceType.AC:
-                    armour = GetDefencePower(MinAC, MaxAC);
-                    break;
-                case DefenceType.MACAgility:
-                    if (Envir.Random.Next(Settings.MagicResistWeight) < MagicResist)
-                    {
-                        BroadcastDamageIndicator(DamageType.Miss);
-                        return 0;
-                    }
-                    if (Envir.Random.Next(Agility + 1) > attacker.Accuracy)
-                    {
-                        return 0;
-                    }
-                    armour = GetDefencePower(MinMAC, MaxMAC);
-                    break;
-                case DefenceType.MAC:
-                    if (Envir.Random.Next(Settings.MagicResistWeight) < MagicResist)
-                    {
-                        BroadcastDamageIndicator(DamageType.Miss);
-                        return 0;
-                    }
-                    armour = GetDefencePower(MinMAC, MaxMAC);
-                    break;
-                case DefenceType.Agility:
-                    if (Envir.Random.Next(Agility + 1) > attacker.Accuracy)
-                    {
-                        BroadcastDamageIndicator(DamageType.Miss);
-                        return 0;
-                    }
-                    break;
+                switch (Buffs[i].Type)
+                {
+                    case BuffType.MoonLight:
+                    case BuffType.DarkBody:
+                        Buffs[i].ExpireTime = 0;
+                        break;
+                    case BuffType.EnergyShield:
+                        int rate = Buffs[i].Values[0];
+
+                        if (Envir.Random.Next(rate < 2 ? 2 : rate) == 0)
+                        {
+                            if (HP + ((ushort)Buffs[i].Values[1]) >= MaxHP)
+                                SetHP(MaxHP);
+                            else
+                                ChangeHP(Buffs[i].Values[1]);
+                        }
+                        break;
+                }
             }
+
+            var armour = GetArmour(type, attacker, out bool hit);
+            if (!hit)
+                return 0;
 
             if (Envir.Random.Next(100) < Reflect)
             {
@@ -10408,7 +10383,7 @@ namespace Server.MirObjects
                 if ((PoisonList[i].PType != PoisonType.Green) && ((PoisonList[i].Duration - PoisonList[i].Time) > p.Duration)) return;//cant cast 1 second poison to make a 1minute poison go away!
                 if ((PoisonList[i].PType == PoisonType.Frozen) || (PoisonList[i].PType == PoisonType.Slow) || (PoisonList[i].PType == PoisonType.Paralysis) || (PoisonList[i].PType == PoisonType.LRParalysis)) return;//prevents mobs from being perma frozen/slowed
                 if (p.PType == PoisonType.DelayedExplosion) return;
-                ReceiveChat("You have been poisoned.", ChatType.System2);
+                ReceiveChat(GameLanguage.BeenPoisoned, ChatType.System2);
                 PoisonList[i] = p;
                 return;
             }
@@ -10421,7 +10396,7 @@ namespace Server.MirObjects
                 ReceiveChat("You are a walking explosive.", ChatType.System);
             }
             else
-                ReceiveChat("You have been poisoned.", ChatType.System2);
+                ReceiveChat(GameLanguage.BeenPoisoned, ChatType.System2);
 
             PoisonList.Add(p);
         }
@@ -11085,7 +11060,12 @@ namespace Server.MirObjects
                     Enqueue(p);
                     return;
                 }
-
+            if (Info.Equipment[to] != null &&
+                Info.Equipment[to].Info.Bind.HasFlag(BindMode.DontStore))
+            {
+                Enqueue(p);
+                return;
+            }
 
             if (CanEquipItem(temp, to))
             {
@@ -11275,6 +11255,12 @@ namespace Server.MirObjects
                             Enqueue(new S.ItemRepaired { UniqueID = temp.UniqueID, MaxDura = temp.MaxDura, CurrentDura = temp.CurrentDura });
                             break;
                         case 6: //ResurrectionScroll
+                            if (CurrentMap.Info.NoReincarnation)
+                            {
+                                ReceiveChat(string.Format("Cannot use on this map"), ChatType.System);
+                                Enqueue(p);
+                                return;
+                            }
                             if (Dead)
                             {
                                 MP = MaxMP;
@@ -12389,7 +12375,7 @@ namespace Server.MirObjects
 
             if (CurrentMap.Info.NoThrowItem)
             {
-                ReceiveChat("You cannot drop items on this map", ChatType.System);
+                ReceiveChat(GameLanguage.CanNotDrop, ChatType.System);
                 Enqueue(p);
                 return;
             }
@@ -12726,14 +12712,14 @@ namespace Server.MirObjects
                 case MirGender.Male:
                     if (!item.Info.RequiredGender.HasFlag(RequiredGender.Male))
                     {
-                        ReceiveChat("You are not Female.", ChatType.System);
+                        ReceiveChat(GameLanguage.NotFemale, ChatType.System);
                         return false;
                     }
                     break;
                 case MirGender.Female:
                     if (!item.Info.RequiredGender.HasFlag(RequiredGender.Female))
                     {
-                        ReceiveChat("You are not Male.", ChatType.System);
+                        ReceiveChat(GameLanguage.NotMale, ChatType.System);
                         return false;
                     }
                     break;
@@ -12776,7 +12762,7 @@ namespace Server.MirObjects
                 case RequiredType.Level:
                     if (Level < item.Info.RequiredAmount)
                     {
-                        ReceiveChat("You are not a high enough level.", ChatType.System);
+                        ReceiveChat(GameLanguage.LowLevel, ChatType.System);
                         return false;
                     }
                     break;
@@ -12797,21 +12783,21 @@ namespace Server.MirObjects
                 case RequiredType.MaxDC:
                     if (MaxDC < item.Info.RequiredAmount)
                     {
-                        ReceiveChat("You do not have enough DC.", ChatType.System);
+                        ReceiveChat(GameLanguage.LowDC, ChatType.System);
                         return false;
                     }
                     break;
                 case RequiredType.MaxMC:
                     if (MaxMC < item.Info.RequiredAmount)
                     {
-                        ReceiveChat("You do not have enough MC.", ChatType.System);
+                        ReceiveChat(GameLanguage.LowMC, ChatType.System);
                         return false;
                     }
                     break;
                 case RequiredType.MaxSC:
                     if (MaxSC < item.Info.RequiredAmount)
                     {
-                        ReceiveChat("You do not have enough SC.", ChatType.System);
+                        ReceiveChat(GameLanguage.LowSC, ChatType.System);
                         return false;
                     }
                     break;
@@ -12867,21 +12853,28 @@ namespace Server.MirObjects
                         case 0:
                             if (CurrentMap.Info.NoEscape)
                             {
-                                ReceiveChat("You cannot use Dungeon Escapes here", ChatType.System);
+                                ReceiveChat(GameLanguage.CanNotDungeon, ChatType.System);
+                                return false;
+                            }
+                            break;
+                        case 1:
+                            if (CurrentMap.Info.NoTownTeleport)
+                            {
+                                ReceiveChat(GameLanguage.NoTownTeleport, ChatType.System);
                                 return false;
                             }
                             break;
                         case 2:
                             if (CurrentMap.Info.NoRandom)
                             {
-                                ReceiveChat("You cannot use Random Teleports here", ChatType.System);
+                                ReceiveChat(GameLanguage.CanNotRandom, ChatType.System);
                                 return false;
                             }
                             break;
                         case 6:
                             if (!Dead)
                             {
-                                ReceiveChat("You cannot use Resurrection Scrolls whilst alive", ChatType.Hint);
+                                ReceiveChat(GameLanguage.CannotResurrection, ChatType.Hint);
                                 return false;
                             }
                             break;
@@ -13302,7 +13295,9 @@ namespace Server.MirObjects
         private void DamageDura()
         {
             if (!NoDuraLoss)
-                for (int i = 0; i < Info.Equipment.Length; i++) DamageItem(Info.Equipment[i], Envir.Random.Next(1) + 1);
+                for (int i = 0; i < Info.Equipment.Length; i++)
+                    if (i != (int)EquipmentSlot.Weapon)
+                        DamageItem(Info.Equipment[i], Envir.Random.Next(1) + 1);
         }
         public void DamageWeapon()
         {
@@ -13313,7 +13308,7 @@ namespace Server.MirObjects
         {
             if (item == null || item.CurrentDura == 0 || item.Info.Type == ItemType.Amulet) return;
             if ((item.WeddingRing == Info.Married) && (Info.Equipment[(int)EquipmentSlot.RingL].UniqueID == item.UniqueID)) return;
-            if (item.Info.Strong > 0) amount = Math.Max(1, amount - item.Info.Strong);
+            if (item.Info.Strong + item.Strong > 0) amount = Math.Max(1, amount - item.Info.Strong + item.Strong);
             item.CurrentDura = (ushort)Math.Max(ushort.MinValue, item.CurrentDura - amount);
             item.DuraChanged = true;
 
@@ -13376,18 +13371,18 @@ namespace Server.MirObjects
                 Luck--;
                 item.Luck--;
                 Enqueue(new S.RefreshItem { Item = item });
-                ReceiveChat("Curse dwells within your weapon.", ChatType.System);
+                ReceiveChat(GameLanguage.WeaponCurse, ChatType.System);
             }
             else if (item.Luck <= 0 || Envir.Random.Next(10 * item.Luck) == 0)
             {
                 Luck++;
                 item.Luck++;
                 Enqueue(new S.RefreshItem { Item = item });
-                ReceiveChat("Luck dwells within your weapon.", ChatType.Hint);
+                ReceiveChat(GameLanguage.WeaponLuck, ChatType.Hint);
             }
             else
             {
-                ReceiveChat("No effect.", ChatType.Hint);
+                ReceiveChat(GameLanguage.WeaponNoEffect, ChatType.Hint);
             }
 
             return true;
@@ -14253,7 +14248,7 @@ namespace Server.MirObjects
 
             key = string.Format("[@_{0}]", key);
 
-            DelayedAction action = new DelayedAction(DelayedType.NPC, SMain.Envir.Time + 0, DefaultNPC.ObjectID, key);
+            DelayedAction action = new DelayedAction(DelayedType.NPC, Envir.Time + 0, DefaultNPC.ObjectID, key);
             ActionList.Add(action);
 
             Enqueue(new S.NPCUpdate { NPCID = DefaultNPC.ObjectID });
@@ -14797,7 +14792,7 @@ namespace Server.MirObjects
 
                     if (auction.Sold && auction.Expired)
                     {
-                        SMain.Enqueue(string.Format("Auction both sold and Expired {0}", Account.AccountID));
+                        MessageQueue.Enqueue(string.Format("Auction both sold and Expired {0}", Account.AccountID));
                         return;
                     }
 
@@ -15311,6 +15306,8 @@ namespace Server.MirObjects
         }
         public void AddMember(string name)
         {
+            if (Envir.Time < NextGroupInviteTime) return;
+            NextGroupInviteTime = Envir.Time + Settings.GroupInviteDelay;
             if (GroupMembers != null && GroupMembers[0] != this)
             {
                 ReceiveChat("You are not the group leader.", ChatType.System);
@@ -15650,7 +15647,7 @@ namespace Server.MirObjects
         {
             if ((MyGuild == null) || (MyGuildRank == null))
             {
-                ReceiveChat("You are not in a guild!", ChatType.System);
+                ReceiveChat(GameLanguage.NotInGuild, ChatType.System);
                 return;
             }
             switch (ChangeType)
@@ -15766,7 +15763,7 @@ namespace Server.MirObjects
         {
             if ((MyGuild == null) || (MyGuildRank == null))
             {
-                ReceiveChat("You are not in a guild!", ChatType.System);
+                ReceiveChat(GameLanguage.NotInGuild, ChatType.System);
                 return;
             }
             if (!MyGuildRank.Options.HasFlag(RankOptions.CanChangeNotice))
@@ -16289,8 +16286,13 @@ namespace Server.MirObjects
             Enqueue(p);
         }
 
+        
+
         public void TradeRequest()
         {
+            if (Envir.Time < NextTradeTime) return;
+            NextTradeTime = Envir.Time + Settings.TradeDelay;
+
             if (TradePartner != null)
             {
                 ReceiveChat("You are already trading.", ChatType.System);
@@ -16301,7 +16303,10 @@ namespace Server.MirObjects
             Cell cell = CurrentMap.GetCell(target);
             PlayerObject player = null;
 
-            if (cell.Objects == null || cell.Objects.Count < 1) return;
+            if (cell.Objects == null || cell.Objects.Count < 1) {
+                ReceiveChat(GameLanguage.FaceToTrade, ChatType.System);
+                return;
+            } 
 
             for (int i = 0; i < cell.Objects.Count; i++)
             {
@@ -16313,7 +16318,7 @@ namespace Server.MirObjects
 
             if (player == null)
             {
-                ReceiveChat(string.Format("You must face someone to trade."), ChatType.System);
+                ReceiveChat(GameLanguage.FaceToTrade, ChatType.System);
                 return;
             }
 
@@ -16321,7 +16326,7 @@ namespace Server.MirObjects
             {
                 if (!Functions.FacingEachOther(Direction, CurrentLocation, player.Direction, player.CurrentLocation))
                 {
-                    ReceiveChat(string.Format("You must face someone to trade."), ChatType.System);
+                    ReceiveChat(GameLanguage.FaceToTrade, ChatType.System);
                     return;
                 }
 
@@ -17028,7 +17033,7 @@ namespace Server.MirObjects
 
                     while (count > 0)
                     {
-                        UserItem item = SMain.Envir.CreateFreshItem(carryItem.Item);
+                        UserItem item = Envir.CreateFreshItem(carryItem.Item);
 
                         if (item.Info.StackSize > count)
                         {
@@ -17366,7 +17371,7 @@ namespace Server.MirObjects
 
             if (player == null)
             {
-                ReceiveChat(string.Format("Could not find player {0}", name), ChatType.System);
+                ReceiveChat(string.Format(GameLanguage.CouldNotFindPlayer, name), ChatType.System);
                 return;
             }
 
@@ -17399,7 +17404,7 @@ namespace Server.MirObjects
 
             if (player == null)
             {
-                ReceiveChat(string.Format("Could not find player {0}", name), ChatType.System);
+                ReceiveChat(string.Format(GameLanguage.CouldNotFindPlayer, name), ChatType.System);
                 return;
             }
 
@@ -17449,6 +17454,13 @@ namespace Server.MirObjects
                     if(item.Info.Bind.HasFlag(BindMode.DontTrade))
                     {
                         ReceiveChat(string.Format("{0} cannot be mailed", item.FriendlyName), ChatType.System);
+                        return;
+                    }
+
+                    if (item.Info.Bind.HasFlag(BindMode.NoMail))
+                    {
+                        ReceiveChat(string.Format("{0} cannot be mailed", item.FriendlyName), ChatType.System);
+                        Enqueue(new S.MailSent { Result = -1 });
                         return;
                     }
 
@@ -17880,7 +17892,7 @@ namespace Server.MirObjects
             }
             if (!petFound)
             {
-                SMain.EnqueueDebugging(string.Format("{0}: SummonedCreature no longer exists?!?. {1}", Name, SummonedCreatureType.ToString()));
+                MessageQueue.EnqueueDebugging(string.Format("{0}: SummonedCreature no longer exists?!?. {1}", Name, SummonedCreatureType.ToString()));
                 CreatureSummoned = false;
                 SummonedCreatureType = IntelligentCreatureType.None;
             }
@@ -19129,7 +19141,7 @@ namespace Server.MirObjects
 
             if (Lover == null)
             {
-                SMain.EnqueueDebugging(Name + " is married but couldn't find marriage ID " + Info.Married);
+                MessageQueue.EnqueueDebugging(Name + " is married but couldn't find marriage ID " + Info.Married);
                 return;
             }
 
@@ -19149,7 +19161,7 @@ namespace Server.MirObjects
         {
             if (Info.Mentor == 0)
             {
-                ReceiveChat("You don't currently have a Mentorship to cancel.", ChatType.System);
+                ReceiveChat(GameLanguage.NoMentorship, ChatType.System);
                 return;
             }
             CharacterInfo Mentor = Envir.GetCharacterInfo(Info.Mentor);
@@ -19387,7 +19399,7 @@ namespace Server.MirObjects
 
             if (Mentor == null)
             {
-                SMain.EnqueueDebugging(Name + " is mentored but couldn't find mentor ID " + Info.Mentor);
+                MessageQueue.EnqueueDebugging(Name + " is mentored but couldn't find mentor ID " + Info.Mentor);
                 return;
             }
 
@@ -19458,7 +19470,7 @@ namespace Server.MirObjects
             if (Product == null)
             {
                 ReceiveChat("You're trying to buy an item that isn't in the shop.", ChatType.System);
-                SMain.EnqueueDebugging(Info.Name + " is trying to buy Something that doesn't exist.");
+                MessageQueue.EnqueueDebugging(Info.Name + " is trying to buy Something that doesn't exist.");
                 return;
             }
 
@@ -19484,7 +19496,7 @@ namespace Server.MirObjects
                 {
                     ReceiveChat("You're trying to buy more of this item than is available.", ChatType.System);
                     GameShopStock(Product);
-                    SMain.EnqueueDebugging(Info.Name + " is trying to buy " + Product.Info.FriendlyName + " x " + Quantity + " - Stock isn't available.");
+                    MessageQueue.EnqueueDebugging(Info.Name + " is trying to buy " + Product.Info.FriendlyName + " x " + Quantity + " - Stock isn't available.");
                     return;
                 }
             }
@@ -19495,7 +19507,7 @@ namespace Server.MirObjects
             
             if (stockAvailable)
             {
-                SMain.EnqueueDebugging(Info.Name + " is trying to buy " + Product.Info.FriendlyName + " x " + Quantity + " - Stock is available");
+                MessageQueue.EnqueueDebugging(Info.Name + " is trying to buy " + Product.Info.FriendlyName + " x " + Quantity + " - Stock is available");
                 if (Product.CreditPrice * Quantity < Account.Credit)
                 {
                     canAfford = true;
@@ -19513,7 +19525,7 @@ namespace Server.MirObjects
                     {
 
                         ReceiveChat("You don't have enough currency for your purchase.", ChatType.System);
-                        SMain.EnqueueDebugging(Info.Name + " is trying to buy " + Product.Info.FriendlyName + " x " + Quantity + " - not enough currency.");
+                        MessageQueue.EnqueueDebugging(Info.Name + " is trying to buy " + Product.Info.FriendlyName + " x " + Quantity + " - not enough currency.");
                         return;
                     }
                 }
@@ -19525,7 +19537,7 @@ namespace Server.MirObjects
 
             if (canAfford)
             {
-                SMain.EnqueueDebugging(Info.Name + " is trying to buy " + Product.Info.FriendlyName + " x " + Quantity + " - Has enough currency.");
+                MessageQueue.EnqueueDebugging(Info.Name + " is trying to buy " + Product.Info.FriendlyName + " x " + Quantity + " - Has enough currency.");
                 Account.Gold -= GoldCost;
                 Account.Credit -= CreditCost;
 
@@ -19614,7 +19626,7 @@ namespace Server.MirObjects
                     mail.MailID = 0;
                     mail.Save();
                 }
-            SMain.EnqueueDebugging(Info.Name + " is trying to buy " + Product.Info.FriendlyName + " x " + Quantity + " - Purchases Sent!");
+            MessageQueue.EnqueueDebugging(Info.Name + " is trying to buy " + Product.Info.FriendlyName + " x " + Quantity + " - Purchases Sent!");
             ReceiveChat("Your purchases have been sent to your Mailbox.", ChatType.Hint);
         }
             

@@ -8,7 +8,6 @@ using System.Linq;
 using Server.MirEnvir;
 using Server.MirNetwork;
 using Server.MirObjects;
-using System.Windows.Forms;
 using Microsoft.EntityFrameworkCore;
 using Server.MirDatabase.Extensions;
 
@@ -24,7 +23,10 @@ namespace Server.MirDatabase
         public MirGender Gender { get; set; }
         public byte Hair { get; set; }
         public int GuildIndex { get; set; } = -1;
-
+        protected static Envir Envir
+        {
+            get { return Envir.Main; }
+        }
         public string CreationIP { get; set; }
         public DateTime CreationDate { get; set; }
 
@@ -40,8 +42,6 @@ namespace Server.MirDatabase
 
         public bool Deleted { get; set; }
         public DateTime DeleteDate { get; set; }
-
-        public ListViewItem ListItem;
 
         //Marriage
         public int Married { get; set; } = 0;
@@ -179,7 +179,7 @@ namespace Server.MirDatabase
             Gender = p.Gender;
 
             CreationIP = c.IPAddress;
-            CreationDate = SMain.Envir.Now;
+            CreationDate = Envir.Now;
         }
 
         public CharacterInfo(BinaryReader reader)
@@ -239,7 +239,7 @@ namespace Server.MirDatabase
             {
                 if (!reader.ReadBoolean()) continue;
                 UserItem item = new UserItem(reader, Envir.LoadVersion, Envir.LoadCustomVersion);
-                if (SMain.Envir.BindItem(item) && i < Inventory.Length)
+                if (Envir.BindItem(item) && i < Inventory.Length)
                     Inventory[i] = item;
             }
 
@@ -248,7 +248,7 @@ namespace Server.MirDatabase
             {
                 if (!reader.ReadBoolean()) continue;
                 UserItem item = new UserItem(reader, Envir.LoadVersion, Envir.LoadCustomVersion);
-                if (SMain.Envir.BindItem(item) && i < Equipment.Length)
+                if (Envir.BindItem(item) && i < Equipment.Length)
                     Equipment[i] = item;
             }
 
@@ -257,7 +257,7 @@ namespace Server.MirDatabase
             {
                 if (!reader.ReadBoolean()) continue;
                 UserItem item = new UserItem(reader, Envir.LoadVersion, Envir.LoadCustomVersion);
-                if (SMain.Envir.BindItem(item) && i < QuestInventory.Length)
+                if (Envir.BindItem(item) && i < QuestInventory.Length)
                     QuestInventory[i] = item;
             }
 
@@ -317,7 +317,7 @@ namespace Server.MirDatabase
                 for (int i = 0; i < count; i++)
                 {
                     QuestProgressInfo quest = new QuestProgressInfo(reader);
-                    if (SMain.Envir.BindQuest(quest))
+                    if (Envir.BindQuest(quest))
                         CurrentQuests.Add(quest);
                 }
             }
@@ -331,7 +331,7 @@ namespace Server.MirDatabase
 
                     if (Envir.LoadVersion == 51)
                     {
-                        buff.Caster = SMain.Envir.GetObject(reader.ReadUInt32());
+                        buff.Caster = Envir.GetObject(reader.ReadUInt32());
                     }
 
                     Buffs.Add(buff);
@@ -381,7 +381,7 @@ namespace Server.MirDatabase
 
                     if (Envir.LoadVersion == 51)
                     {
-                        poison.Owner = SMain.Envir.GetObject(reader.ReadUInt32());
+                        poison.Owner = Envir.GetObject(reader.ReadUInt32());
                     }
 
                     Poisons.Add(poison);
@@ -392,10 +392,10 @@ namespace Server.MirDatabase
             {
                 if (reader.ReadBoolean()) CurrentRefine = new UserItem(reader, Envir.LoadVersion, Envir.LoadCustomVersion);
                   if (CurrentRefine != null)
-                    SMain.Envir.BindItem(CurrentRefine);
+                    Envir.BindItem(CurrentRefine);
 
                 CollectTime = reader.ReadInt64();
-                CollectTime += SMain.Envir.Time;
+                CollectTime += Envir.Time;
             }
 
             if (Envir.LoadVersion > 58)
@@ -665,10 +665,10 @@ namespace Server.MirDatabase
             if (CurrentRefine != null)
                 CurrentRefine.Save(writer);
 
-            if ((CollectTime - SMain.Envir.Time) < 0)
+            if ((CollectTime - Envir.Time) < 0)
                 CollectTime = 0;
             else
-                CollectTime = CollectTime - SMain.Envir.Time;
+                CollectTime = CollectTime - Envir.Time;
 
             writer.Write(CollectTime);
 
@@ -696,21 +696,6 @@ namespace Server.MirDatabase
                 writer.Write(item.Key);
                 writer.Write(item.Value);
             }
-        }
-
-        public ListViewItem CreateListView()
-        {
-            if (ListItem != null)
-                ListItem.Remove();
-
-            ListItem = new ListViewItem(Index.ToString()) { Tag = this };
-
-            ListItem.SubItems.Add(Name);
-            ListItem.SubItems.Add(Level.ToString());
-            ListItem.SubItems.Add(Class.ToString());
-            ListItem.SubItems.Add(Gender.ToString());
-
-            return ListItem;
         }
 
         public SelectInfo ToSelectInfo()
@@ -833,6 +818,11 @@ namespace Server.MirDatabase
 
     public class FriendInfo
     {
+        protected static Envir Envir
+        {
+            get { return Envir.Main; }
+        }
+
         public int Index;
 
         private CharacterInfo _Info;
@@ -841,7 +831,7 @@ namespace Server.MirDatabase
             get 
             {
                 if (_Info == null) 
-                    _Info = SMain.Envir.GetCharacterInfo(Index);
+                    _Info = Envir.GetCharacterInfo(Index);
 
                 return _Info;
             }
