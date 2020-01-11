@@ -90,7 +90,6 @@
     <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Server\Server.Library.csproj" />
     <Compile Include="Account\PlayerInfoForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -361,6 +360,12 @@
       <ProductName>Windows Installer 4.5</ProductName>
       <Install>true</Install>
     </BootstrapperPackage>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Server.Library\Server.Library.csproj">
+      <Project>{af5f4517-ce06-4d20-9bff-1860c6604021}</Project>
+      <Name>Server.Library</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

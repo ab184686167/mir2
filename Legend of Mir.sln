@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.29613.14
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Server", "Server.MirForms\Server.MirForms.csproj", "{263074D6-AB8D-4F3C-9CE6-A05405432BCE}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Server.MirForms", "Server.MirForms\Server.MirForms.csproj", "{263074D6-AB8D-4F3C-9CE6-A05405432BCE}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Client", "Client\Client.csproj", "{35050645-A39D-483B-BB24-3EFCC5F7E720}"
 EndProject
@@ -24,6 +24,8 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Utils", "Utils", "{7A90DE40-242F-452E-BEFF-39A599AE0D79}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Server.Library", "Server.Library\Server.Library.csproj", "{AF5F4517-CE06-4D20-9BFF-1860C6604021}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Server.NetCore", "Server.NetCore\Server.NetCore.csproj", "{9E90C17A-6CB5-4348-AE95-6AEE938F887B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -122,6 +124,22 @@ Global
 		{AF5F4517-CE06-4D20-9BFF-1860C6604021}.Release|x64.Build.0 = Release|Any CPU
 		{AF5F4517-CE06-4D20-9BFF-1860C6604021}.Release|x86.ActiveCfg = Release|Any CPU
 		{AF5F4517-CE06-4D20-9BFF-1860C6604021}.Release|x86.Build.0 = Release|Any CPU
+		{9E90C17A-6CB5-4348-AE95-6AEE938F887B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9E90C17A-6CB5-4348-AE95-6AEE938F887B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9E90C17A-6CB5-4348-AE95-6AEE938F887B}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{9E90C17A-6CB5-4348-AE95-6AEE938F887B}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{9E90C17A-6CB5-4348-AE95-6AEE938F887B}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{9E90C17A-6CB5-4348-AE95-6AEE938F887B}.Debug|x64.Build.0 = Debug|Any CPU
+		{9E90C17A-6CB5-4348-AE95-6AEE938F887B}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{9E90C17A-6CB5-4348-AE95-6AEE938F887B}.Debug|x86.Build.0 = Debug|Any CPU
+		{9E90C17A-6CB5-4348-AE95-6AEE938F887B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9E90C17A-6CB5-4348-AE95-6AEE938F887B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9E90C17A-6CB5-4348-AE95-6AEE938F887B}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{9E90C17A-6CB5-4348-AE95-6AEE938F887B}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{9E90C17A-6CB5-4348-AE95-6AEE938F887B}.Release|x64.ActiveCfg = Release|Any CPU
+		{9E90C17A-6CB5-4348-AE95-6AEE938F887B}.Release|x64.Build.0 = Release|Any CPU
+		{9E90C17A-6CB5-4348-AE95-6AEE938F887B}.Release|x86.ActiveCfg = Release|Any CPU
+		{9E90C17A-6CB5-4348-AE95-6AEE938F887B}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
