@@ -19,7 +19,7 @@ namespace Server.MirEnvir
             get { return Envir.Main; }
         }
         [Key]
-        public ulong MailID;
+        public ulong MailID { get; set; }
 
         public string Sender { get; set; }
 

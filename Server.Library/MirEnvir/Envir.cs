@@ -192,6 +192,16 @@ namespace Server.MirEnvir
                     DisabledCharNames.Add(lines[i].ToUpper());
                 }
             }
+            using (var serverDb = new ServerDbContext())
+            {
+                serverDb.Database.Migrate();
+            }
+
+            using (var accountDb = new AccountDbContext())
+            {
+                accountDb.Database.Migrate();
+            }
+            
         }
 
         public static int LastCount = 0, LastRealCount = 0;

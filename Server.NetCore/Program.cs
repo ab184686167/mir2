@@ -25,7 +25,7 @@ namespace Server.NetCore
         private static void ConsoleOnCancelKeyPress(object sender, ConsoleCancelEventArgs e)
         {
             Console.WriteLine("^C Pressed... Stop Server...");
-            Envir.Main.Stop();
+            if(Envir.Main.Running) Envir.Main.Stop();
             Environment.Exit(0);
         }
 
@@ -33,7 +33,7 @@ namespace Server.NetCore
         {
             
             Console.WriteLine("Exiting...");
-            Envir.Main.Stop();
+            if (Envir.Main.Running) Envir.Main.Stop();
             //Environment.Exit(-1);
         }
     }

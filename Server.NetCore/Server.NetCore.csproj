@@ -11,6 +11,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="2.1.14" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Server.Library\Server.Library.csproj" />
   </ItemGroup>
 
